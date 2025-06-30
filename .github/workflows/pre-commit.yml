@@ -1,0 +1,32 @@
+name: 🛠 Lint & Format
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+
+jobs:
+  pre-commit:
+    runs-on: ubuntu-latest
+
+    steps:
+      # 1. Check out the code
+      - name: Checkout
+        uses: actions/checkout@v3
+
+      # 2. Set up Python
+      - name: Setup Python 3.11
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+
+      # 3. Install pre-commit
+      - name: Install pre-commit
+        run: |
+          python -m pip install --upgrade pip
+          pip install pre-commit
+
+      # 4. Run all hooks on every file
+      - name: Run pre-commit hooks
+        run: pre-commit run --all-files --show-diff-on-failure
