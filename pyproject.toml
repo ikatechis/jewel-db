@@ -20,7 +20,44 @@ httpx = "^0.27.0"
 
 [tool.poetry.group.dev.dependencies]
 pytest = "^8.0.0"
+ruff = "^0.12.1"
+pre-commit = "^4.2.0"
 
 [build-system]
 requires = ["poetry-core"]
 build-backend = "poetry.core.masonry.api"
+
+[tool.ruff]
+# Target Python versions (helps ruff enforce version‐appropriate rules)
+target-version = "py311"
+
+# Maximum line length (match your Black/prettier settings)
+line-length = 88
+
+# Which error/warning codes to check
+# E = pycodestyle errors, F = pyflakes, W = pycodestyle warnings
+# C90 = complexity checks, I = import‐order checks, UP = unused-parameter
+select = ["E", "F", "W", "C90", "I", "UP"]
+
+# Codes to ignore (common conflicts with Black or personal preference)
+extend-ignore = [
+  "E203",  # whitespace before ':' (Black does this)
+  "W503",  # line break before binary operator (Black style)
+]
+
+# Exclude common directories
+exclude = [
+  ".git",
+  ".venv",
+  "build",
+  "dist",
+  "__pycache__",
+]
+
+# Per‐file ignores (e.g. allow prints or __init__.py to be looser)
+per-file-ignores = [
+  # Allow print statements in scripts:
+  "scripts/*.py: T001",
+  # Allow unused imports in __init__.py (for namespace packages):
+  "__init__.py: F401",
+]
