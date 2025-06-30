@@ -1,6 +1,19 @@
 repos:
+  - repo: https://github.com/psf/black
+    rev: 24.4.0
+    hooks:
+      - id: black
+        args: [--quiet]
+
+  - repo: https://github.com/PyCQA/isort
+    # Use a real tag—e.g. 5.12.0 or 5.11.2
+    rev: 5.12.0
+    hooks:
+      - id: isort
+        args: ["--profile=black"]
+
   - repo: https://github.com/charliermarsh/ruff-pre-commit
-    rev: v0.0.261  # use latest stable tag
+    rev: v0.0.261
     hooks:
       - id: ruff
         args: [--fix]

@@ -1,8 +1,51 @@
+# Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
-*.sqlite3
-/media/
-*.env
-poetry.lock
-alembic.ini
+*$py.class
+
+# Virtual environments
+.venv/
+venv/
+env/
+ENV/
+
+# Poetry’s cache & lock (optional—lockfile often is tracked)
+# .venv is listed above; if you want to ignore the lockfile:
+# poetry.lock
+
+# Environment variables
 .env
+
+# Database files
+*.db
+*.sqlite3
+
+# Media uploads
+media/
+
+# Build artefacts
+build/
+dist/
+
+# Static/site generated files
+*.egg-info/
+.eggs/
+
+# Docker
+docker-compose.override.yml
+*.log
+
+# IDEs and editors
+.vscode/
+.idea/
+*.sublime-project
+*.sublime-workspace
+
+# macOS
+.DS_Store
+
+# Windows
+Thumbs.db
+
+# Python version file (if you want everyone on the same pyenv)
+.python-version
