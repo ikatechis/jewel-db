@@ -132,6 +132,51 @@ def reorder_images(
     session.commit()
 
 
+@router.delete(
+    "/{item_id}/images/{image_id}",
+    status_code=204,
+)
+def delete_item_image(
+    *,
+    item_id: int,
+    image_id: int,
+    session: Session = Depends(get_session),
+):
+    """
+    Delete a single JewelryImage (and its file) if it belongs to the given item,
+    then re‐assign sort_order so the next image becomes the new thumbnail.
+    """
+    img = session.get(JewelryImage, image_id)
+    if not img or img.item_id != item_id:
+        raise HTTPException(status_code=404, detail="Image not found")
+
+    # 1) delete file on disk
+    file_path = MEDIA_DIR / Path(img.url).name
+    if file_path.exists():
+        try:
+            file_path.unlink()
+        except Exception:
+            pass
+
+    # 2) delete the record
+    session.delete(img)
+    session.commit()
+
+    # 3) re‐normalize remaining images' sort_order
+    remaining = session.exec(
+        select(JewelryImage)
+        .where(JewelryImage.item_id == item_id)
+        .order_by(JewelryImage.sort_order)
+    ).all()
+
+    for idx, image in enumerate(remaining):
+        image.sort_order = idx + 1
+        session.add(image)
+
+    session.commit()
+    return
+
+
 # ─── CRUD endpoints ───────────────────────────────────────────────────────────
 
 
