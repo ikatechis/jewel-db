@@ -1,4 +1,3 @@
-<!-- jewel_db/templates/item_detail.html -->
 {% extends "base.html" %}
 {% block title %}{{ item.name }} – Jewelry Inventory{% endblock %}
 
@@ -17,9 +16,15 @@
         Cancel
       </button>
 
-      <button data-id="{{ item.id }}" class="delete-btn bg-red-600 hover:bg-red-700 text-white px-3 py-1 rounded text-sm">
+      <!-- ITEM DELETE BUTTON -->
+      <button
+        id="item-delete-btn"
+        data-id="{{ item.id }}"
+        class="bg-red-600 hover:bg-red-700 text-white px-3 py-1 rounded text-sm"
+      >
         Delete
       </button>
+
       <a href="/items" class="text-gray-600 underline text-sm">Back to list</a>
     </div>
   </div>
@@ -43,7 +48,7 @@
     {% endfor %}
   </ul>
 
-  <!-- IMAGE UPLOAD (now BELOW the gallery) -->
+  <!-- IMAGE UPLOAD -->
   <div class="mb-8">
     <label class="block font-medium mb-2">Upload Images</label>
     <div class="flex items-center space-x-2">
@@ -130,16 +135,17 @@
   <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.0/Sortable.min.js"></script>
   <script>
     document.addEventListener("DOMContentLoaded", () => {
-      const itemId      = {{ item.id }};
-      const form        = document.getElementById("item-detail-form");
-      const editBtn     = document.getElementById("edit-btn");
-      const saveBtn     = document.getElementById("save-btn");
-      const cancelBtn   = document.getElementById("cancel-btn");
-      const uploadInput = document.getElementById("upload-input");
-      const uploadBtn   = document.getElementById("upload-btn");
-      const gallery     = document.getElementById("gallery");
+      const itemId       = {{ item.id }};
+      const form         = document.getElementById("item-detail-form");
+      const editBtn      = document.getElementById("edit-btn");
+      const saveBtn      = document.getElementById("save-btn");
+      const cancelBtn    = document.getElementById("cancel-btn");
+      const deleteBtn    = document.getElementById("item-delete-btn");
+      const uploadInput  = document.getElementById("upload-input");
+      const uploadBtn    = document.getElementById("upload-btn");
+      const gallery      = document.getElementById("gallery");
 
-      // Inline-edit logic
+      // — Inline‐edit logic (same as before) —
       const original = {};
       form.querySelectorAll("input[name], textarea[name]").forEach(el => {
         original[el.name] = el.value;
@@ -189,12 +195,24 @@
         cancelBtn.hidden = true;
       });
 
-      // Gallery helpers
+      // — ITEM DELETE → redirect to list page —
+      deleteBtn.addEventListener("click", async () => {
+        if (!confirm("Delete this item?")) return;
+        const res = await fetch(`/api/items/${itemId}`, { method: "DELETE" });
+        if (res.status === 204) {
+          window.location.href = "/items";
+        } else {
+          const err = await res.json().catch(() => ({}));
+          alert("Delete failed: " + (err.detail || res.status));
+        }
+      });
+
+      // — Gallery reorder, per‐image delete & upload logic (unchanged) —
       function readOrder() {
         return Array.from(gallery.children).map(li => li.dataset.id);
       }
       async function refreshGallery() {
-        const imgs = await fetch(`/api/items/${itemId}/images`).then(r => r.json());
+        const imgs     = await fetch(`/api/items/${itemId}/images`).then(r => r.json());
         const orderMap = imgs.reduce((o,i) => (o[i.id] = i.sort_order, o), {});
         for (const li of gallery.children) {
           const badge = li.querySelector("span");
@@ -202,7 +220,7 @@
             if (!badge) {
               const s = document.createElement("span");
               s.textContent = "★ Thumbnail";
-              s.className = "absolute top-2 left-2 bg-yellow-400 text-white px-1 rounded text-sm z-10";
+              s.className  = "absolute top-2 left-2 bg-yellow-400 text-white px-1 rounded text-sm z-10";
               li.appendChild(s);
             }
           } else if (badge) {
@@ -210,8 +228,6 @@
           }
         }
       }
-
-      // Drag & reorder
       new Sortable(gallery, {
         animation: 150,
         onEnd: async () => {
@@ -223,8 +239,6 @@
           await refreshGallery();
         }
       });
-
-      // Per-image delete & thumbnail click
       gallery.addEventListener("click", async e => {
         if (e.target.matches(".image-delete-btn")) {
           const imgId = e.target.dataset.imageId;
@@ -238,8 +252,7 @@
           }
           return;
         }
-        const li = e.target.closest("li[data-id]");
-        if (!li) return;
+        const li = e.target.closest("li[data-id]"); if (!li) return;
         const clicked = li.dataset.id;
         const rest    = readOrder().filter(i => i !== clicked);
         await fetch(`/api/items/${itemId}/images/reorder`, {
@@ -249,18 +262,16 @@
         });
         await refreshGallery();
       });
-
-      // Multi-upload handler
       uploadBtn.addEventListener("click", async () => {
         const files = Array.from(uploadInput.files);
         if (!files.length) return alert("Select one or more images first");
         uploadBtn.disabled = true;
         const fd = new FormData();
         files.forEach(f => fd.append("files", f));
-        const res = await fetch(`/api/items/${itemId}/images`, { method: "POST", body: fd });
-        if (!res.ok) {
-          const err = await res.json().catch(() => ({}));
-          alert("Upload failed: " + (err.detail || res.status));
+        const r = await fetch(`/api/items/${itemId}/images`, { method: "POST", body: fd });
+        if (!r.ok) {
+          const err = await r.json().catch(() => ({}));
+          alert("Upload failed: " + (err.detail || r.status));
         } else {
           uploadInput.value = "";
           await refreshGallery();
@@ -268,7 +279,7 @@
         uploadBtn.disabled = false;
       });
 
-      // Initial setup
+      // initial setup
       setDisabled(true);
       refreshGallery();
     });
