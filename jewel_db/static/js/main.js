@@ -3,87 +3,79 @@
 console.log("main.js loaded");
 
 document.addEventListener("DOMContentLoaded", () => {
+  // ————————————————
+  // 1) FORM SUBMIT HANDLER
+  // ————————————————
   const form = document.getElementById("item-form");
-  if (!form) return;
+  if (form) {
+    const submitBtn = form.querySelector('button[type="submit"]');
 
-  // Grab the submit button
-  const submitBtn = form.querySelector('button[type="submit"]');
-
-  // Use a named handler so we can remove it if needed
-  async function handleSubmit(e) {
-    e.preventDefault();
-
-    // Disable the button immediately to prevent duplicate clicks
-    if (submitBtn) {
+    async function handleSubmit(e) {
+      e.preventDefault();
       submitBtn.disabled = true;
-      submitBtn.classList.add("opacity-50", "cursor-not-allowed");
-    }
 
-    if (!form.checkValidity()) {
-      form.reportValidity();
-      if (submitBtn) submitBtn.disabled = false;
-      return;
-    }
+      // Gather fields (excluding files)
+      const fd = new FormData(form);
+      const data = Object.fromEntries(
+        Array.from(fd.entries()).filter(([k]) => k !== "files")
+      );
 
-    form.querySelectorAll(".error-msg").forEach(el => el.textContent = "");
-
-    // 1) Gather fields
-    const data = {};
-    new FormData(form).forEach((v, k) => {
-      if (k !== "files" && v !== "") data[k] = v;
-    });
-
-    // 2) Create or update the item
-    let res = await fetch(
-      data.id ? `/api/items/${data.id}` : "/api/items/",
-      {
-        method: data.id ? "PATCH" : "POST",
+      // Create or update
+      const method = data.id ? "PATCH" : "POST";
+      const url    = data.id ? `/api/items/${data.id}` : "/api/items";
+      let res = await fetch(url, {
+        method,
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(data),
-      }
-    );
-
-    if (!res.ok) {
-      const err = await res.json();
-      if (Array.isArray(err.detail)) {
-        err.detail.forEach(error => {
-          const fld = form.querySelector(`[name="${error.loc[1]}"]`);
-          const msg = fld?.parentElement.querySelector(".error-msg");
-          if (msg) msg.textContent = error.msg;
-        });
-      } else {
-        alert("Save failed: " + JSON.stringify(err));
-      }
-      if (submitBtn) submitBtn.disabled = false;
-      return;
-    }
-
-    const saved = await res.json();
-    const itemId = saved.id;
-
-    // 3) Upload images exactly once
-    const fileInput = form.querySelector('input[name="files"]');
-    if (fileInput && fileInput.files.length) {
-      console.log("Uploading", fileInput.files.length, "file(s) for item", itemId);
-      const upForm = new FormData();
-      for (const f of fileInput.files) upForm.append("files", f);
-      const upRes = await fetch(`/api/items/${itemId}/images`, {
-        method: "POST",
-        body: upForm,
       });
-      if (!upRes.ok) {
-        const err = await upRes.json();
-        alert("Image upload failed: " + (err.detail || JSON.stringify(err)));
-        // We won’t re-enable the button here since we’re already redirecting
+
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        alert("Save failed: " + (err.detail || res.status));
+        submitBtn.disabled = false;
+        return;
       }
-      fileInput.value = "";
-      console.log("Upload complete");
+
+      const saved = await res.json();
+
+      // Upload images if present
+      const files = fd.getAll("files");
+      if (files.length) {
+        const upfd = new FormData();
+        files.forEach(f => upfd.append("files", f));
+        res = await fetch(`/api/items/${saved.id}/images`, {
+          method: "POST",
+          body: upfd,
+        });
+        if (!res.ok) {
+          const err = await res.json().catch(() => ({}));
+          alert("Image upload failed: " + (err.detail || res.status));
+        }
+      }
+
+      // Redirect to detail or list
+      window.location.href = data.id
+        ? `/items/${saved.id}`
+        : "/items";
     }
 
-    // 4) Redirect
-    window.location.href = `/items/${itemId}`;
+    form.addEventListener("submit", handleSubmit);
   }
 
-  // Attach with { once: true } so it's removed after first invocation
-  form.addEventListener("submit", handleSubmit, { once: true });
+  // ————————————————
+  // 2) DELETE BUTTON HANDLER
+  // ————————————————
+  document.querySelectorAll(".delete-btn").forEach(button => {
+    button.addEventListener("click", async () => {
+      if (!confirm("Are you sure you want to delete this item?")) return;
+      const id = button.dataset.id;
+      const res = await fetch(`/api/items/${id}`, { method: "DELETE" });
+      if (res.status === 204) {
+        window.location.reload();
+      } else {
+        const err = await res.json().catch(() => ({}));
+        alert("Delete failed: " + (err.detail || res.status));
+      }
+    });
+  });
 });
