@@ -34,7 +34,9 @@
       </select>
     </div>
     <div>
-      <button type="submit" class="bg-blue-600 text-white px-4 py-2 rounded mt-6">Filter</button>
+      <button type="submit" class="bg-blue-600 text-white px-4 py-2 rounded mt-6">
+        Filter
+      </button>
     </div>
   </form>
 
@@ -66,9 +68,9 @@
 
   <!-- GRID VIEW -->
   <div id="grid-view">
-    <div class="grid grid-cols-3 gap-6">
+    <div id="grid-container" class="grid grid-cols-3 gap-6">
       {% for item in items %}
-      <div class="bg-white shadow rounded overflow-hidden">
+      <div class="item-card bg-white shadow rounded overflow-hidden" data-id="{{ item.id }}">
         {% if thumbs[item.id] %}
         <img
           src="{{ thumbs[item.id] }}"
@@ -98,36 +100,19 @@
     <table class="min-w-full bg-white">
       <thead>
         <tr>
-          <th class="px-4 py-2">
-            <input type="checkbox" id="select-all" />
-          </th>
+          <th class="px-4 py-2"><input type="checkbox" id="select-all" /></th>
           <th class="px-4 py-2 text-left">Name</th>
+          <th class="px-4 py-2 text-left">Image</th>
           <th class="px-4 py-2 text-left">Material</th>
           <th class="px-4 py-2 text-left">Gemstone</th>
           <th class="px-4 py-2 text-right">
-            <a
-              href="{{ request.url.include_query_params(
-                sort_by='weight',
-                sort_dir=('desc' if sort_by=='weight' and sort_dir=='asc' else 'asc')
-              ) }}"
-            >
-              Weight
-              {% if sort_by=='weight' %}
-                {% if sort_dir=='asc' %}↑{% else %}↓{% endif %}
-              {% endif %}
+            <a href="{{ request.url.include_query_params(sort_by='weight', sort_dir=(sort_by=='weight' and sort_dir=='asc' and 'desc' or 'asc')) }}">
+              Weight {% if sort_by=='weight' %}{{ sort_dir=='asc' and '↑' or '↓' }}{% endif %}
             </a>
           </th>
           <th class="px-4 py-2 text-right">
-            <a
-              href="{{ request.url.include_query_params(
-                sort_by='price',
-                sort_dir=('desc' if sort_by=='price'  and sort_dir=='asc' else 'asc')
-              ) }}"
-            >
-              Price
-              {% if sort_by=='price' %}
-                {% if sort_dir=='asc' %}↑{% else %}↓{% endif %}
-              {% endif %}
+            <a href="{{ request.url.include_query_params(sort_by='price', sort_dir=(sort_by=='price' and sort_dir=='asc' and 'desc' or 'asc')) }}">
+              Price {% if sort_by=='price' %}{{ sort_dir=='asc' and '↑' or '↓' }}{% endif %}
             </a>
           </th>
           <th class="px-4 py-2">Actions</th>
@@ -140,6 +125,17 @@
             <input type="checkbox" class="select-item" data-id="{{ item.id }}" />
           </td>
           <td class="px-4 py-2">{{ item.name }}</td>
+          <td class="px-4 py-2">
+            {% if thumbs[item.id] %}
+            <img
+              src="{{ thumbs[item.id] }}"
+              class="w-12 h-12 object-cover rounded"
+              alt="Thumb for {{ item.name }}"
+            />
+            {% else %}
+            <span class="text-gray-400 text-xs">—</span>
+            {% endif %}
+          </td>
           <td class="px-4 py-2">{{ item.material or '—' }}</td>
           <td class="px-4 py-2">{{ item.gemstone or '—' }}</td>
           <td class="px-4 py-2 text-right">{{ '%.2f'|format(item.weight) }}</td>
@@ -151,8 +147,6 @@
         {% endfor %}
       </tbody>
     </table>
-
-    <!-- Bulk delete -->
     <div class="mt-4">
       <button id="bulk-delete-btn" class="bg-red-600 text-white px-4 py-2 rounded">
         Delete Selected
@@ -163,31 +157,30 @@
   <!-- PAGINATION -->
   <div class="mt-6 flex justify-center space-x-2">
     {% if page > 1 %}
-      <a
-        href="{{ request.url.include_query_params(page=page-1) }}"
-        class="px-3 py-1 bg-gray-200 rounded"
-      >Prev</a>
+      <a href="{{ request.url.include_query_params(page=page-1) }}" class="px-3 py-1 bg-gray-200 rounded">Prev</a>
     {% endif %}
     <span class="px-3 py-1">{{ page }} / {{ total_pages }}</span>
     {% if page < total_pages %}
-      <a
-        href="{{ request.url.include_query_params(page=page+1) }}"
-        class="px-3 py-1 bg-gray-200 rounded"
-      >Next</a>
+      <a href="{{ request.url.include_query_params(page=page+1) }}" class="px-3 py-1 bg-gray-200 rounded">Next</a>
     {% endif %}
   </div>
 {% endblock %}
 
 {% block scripts %}
+  <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.0/Sortable.min.js"></script>
   <script>
     document.addEventListener("DOMContentLoaded", () => {
       // Grid/List toggle
-      const grid  = document.getElementById("grid-view");
-      const list  = document.getElementById("list-view");
-      const btnG  = document.getElementById("grid-toggle");
-      const btnL  = document.getElementById("list-toggle");
-      btnG.addEventListener("click", () => { grid.classList.remove("hidden"); list.classList.add("hidden"); });
-      btnL.addEventListener("click", () => { list.classList.remove("hidden"); grid.classList.add("hidden"); });
+      const grid = document.getElementById("grid-view");
+      const list = document.getElementById("list-view");
+      document.getElementById("grid-toggle").onclick = () => {
+        grid.classList.remove("hidden");
+        list.classList.add("hidden");
+      };
+      document.getElementById("list-toggle").onclick = () => {
+        list.classList.remove("hidden");
+        grid.classList.add("hidden");
+      };
 
       // Bulk delete
       const selectAll = document.getElementById("select-all");
@@ -195,7 +188,6 @@
       selectAll.addEventListener("change", () => {
         checkboxes.forEach(cb => (cb.checked = selectAll.checked));
       });
-
       document.getElementById("bulk-delete-btn").addEventListener("click", async () => {
         const selected = Array.from(checkboxes)
           .filter(cb => cb.checked)
@@ -206,6 +198,20 @@
           await fetch(`/api/items/${id}`, { method: "DELETE" });
         }
         window.location.reload();
+      });
+
+      // Drag‐to‐reorder the grid cards
+      new Sortable(document.getElementById("grid-container"), {
+        animation: 150,
+        onEnd: async () => {
+          const newOrder = Array.from(document.querySelectorAll(".item-card"))
+            .map(el => el.dataset.id);
+          await fetch("/api/items/reorder", {
+            method: "PATCH",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ new_order: newOrder }),
+          });
+        },
       });
     });
   </script>

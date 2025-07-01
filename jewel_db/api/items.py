@@ -263,3 +263,23 @@ def delete_item(
         raise HTTPException(status_code=404, detail="Item not found")
     session.delete(item)
     session.commit()
+
+
+@router.patch(
+    "/reorder",
+    status_code=204,
+)
+def reorder_items(
+    new_order: list[int] = Body(..., embed=True),
+    session: Session = Depends(get_session),
+):
+    """
+    Reorder JewelryItem.sort_order based on the list of IDs.
+    """
+    for idx, item_id in enumerate(new_order):
+        item = session.get(JewelryItem, item_id)
+        if item:
+            item.sort_order = idx + 1
+            session.add(item)
+    session.commit()
+    return

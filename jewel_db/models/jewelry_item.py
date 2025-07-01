@@ -1,11 +1,12 @@
 # jewel_db/models/jewelry_item.py
-
 from __future__ import annotations
 
 from datetime import datetime
 
 from sqlalchemy.orm import relationship
 from sqlmodel import Field, Relationship, SQLModel
+
+from .jewelry_image import JewelryImage
 
 
 class JewelryItemBase(SQLModel):
@@ -22,8 +23,9 @@ class JewelryItemBase(SQLModel):
 
 class JewelryItem(JewelryItemBase, table=True):
     id: int | None = Field(default=None, primary_key=True)
+    sort_order: int = Field(default=0, index=True, description="UI sort order")
 
-    images: list[JewelryImage] = Relationship(  # noqa: F821
+    images: list[JewelryImage] = Relationship(
         sa_relationship=relationship(
             "JewelryImage",
             back_populates="item",
