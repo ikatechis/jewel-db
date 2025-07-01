@@ -3,20 +3,21 @@
 {% block title %}{{ item.name }} – Jewelry Inventory{% endblock %}
 
 {% block content %}
-  <!-- HEADER: Name + Edit/Delete/Back -->
+  <!-- HEADER: Name + Edit/Save/Cancel/Delete/Back -->
   <div class="mb-6 flex items-center justify-between">
     <h2 class="text-2xl font-semibold">{{ item.name }}</h2>
     <div class="space-x-2">
-      <a
-        href="/items/{{ item.id }}/edit"
-        class="bg-yellow-500 hover:bg-yellow-600 text-white px-3 py-1 rounded text-sm"
-      >
+      <button id="edit-btn" class="bg-yellow-500 hover:bg-yellow-600 text-white px-3 py-1 rounded text-sm">
         Edit
-      </a>
-      <button
-        data-id="{{ item.id }}"
-        class="delete-btn bg-red-600 hover:bg-red-700 text-white px-3 py-1 rounded text-sm"
-      >
+      </button>
+      <button id="save-btn" class="bg-green-600 hover:bg-green-700 text-white px-3 py-1 rounded text-sm" hidden>
+        Save
+      </button>
+      <button id="cancel-btn" class="bg-gray-400 hover:bg-gray-500 text-white px-3 py-1 rounded text-sm" hidden>
+        Cancel
+      </button>
+
+      <button data-id="{{ item.id }}" class="delete-btn bg-red-600 hover:bg-red-700 text-white px-3 py-1 rounded text-sm">
         Delete
       </button>
       <a href="/items" class="text-gray-600 underline text-sm">Back to list</a>
@@ -26,85 +27,195 @@
   <!-- Gallery Grid -->
   <ul id="gallery" class="grid grid-cols-3 gap-4 mb-8">
     {% for img in images %}
-    <li data-id="{{ img.id }}"
-        class="relative cursor-move border rounded overflow-hidden">
-      <!-- per-image delete button -->
+    <li data-id="{{ img.id }}" class="relative cursor-move border rounded overflow-hidden">
       <button
         data-image-id="{{ img.id }}"
         class="image-delete-btn absolute top-2 right-2 bg-red-600 hover:bg-red-700 text-white px-1 py-0.5 rounded text-xs z-10"
         title="Delete this image"
       >×</button>
-
-      <img
-        src="{{ img.url }}"
-        class="w-full h-48 object-cover"
-      />
-
+      <img src="{{ img.url }}" class="w-full h-48 object-cover" />
       {% if img.sort_order == 1 %}
-      <span
-        class="absolute top-2 left-2 bg-yellow-400 text-white px-1 rounded text-sm z-10"
-      >★ Thumbnail</span>
+      <span class="absolute top-2 left-2 bg-yellow-400 text-white px-1 rounded text-sm z-10">
+        ★ Thumbnail
+      </span>
       {% endif %}
     </li>
     {% endfor %}
   </ul>
 
-  <!-- Item Details -->
-  <div class="space-y-2 text-gray-700">
-    <p><strong>ID:</strong> {{ item.id }}</p>
-    <p><strong>Material:</strong> {{ item.material or '—' }}</p>
-    <p><strong>Gemstone:</strong> {{ item.gemstone or '—' }}</p>
-    <p>
-      <strong>Weight:</strong>
-      {{ "%.2f"|format(item.weight) if item.weight is not none else '—' }} g
-    </p>
-    <p>
-      <strong>Price:</strong>
-      {{ "%.2f"|format(item.price) if item.price is not none else '—' }}
-    </p>
-    <p><strong>Description:</strong> {{ item.description or '—' }}</p>
-    <p>
-      <strong>Created At:</strong>
-      {{ item.created_at.strftime("%Y-%m-%d %H:%M:%S") }}
-    </p>
+  <!-- IMAGE UPLOAD (now BELOW the gallery) -->
+  <div class="mb-8">
+    <label class="block font-medium mb-2">Upload Images</label>
+    <div class="flex items-center space-x-2">
+      <input
+        id="upload-input"
+        type="file"
+        multiple
+        accept="image/*"
+        class="border rounded p-1"
+      >
+      <button
+        id="upload-btn"
+        class="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1 rounded text-sm"
+      >
+        Upload
+      </button>
+    </div>
   </div>
+
+  <!-- Inline editable form for item details -->
+  <form id="item-detail-form" class="space-y-2 text-gray-700">
+    <input type="hidden" name="id" value="{{ item.id }}">
+
+    <div>
+      <label class="block font-medium">Material</label>
+      <input
+        type="text"
+        name="material"
+        value="{{ item.material or '' }}"
+        disabled
+        class="w-full border rounded p-2"
+      >
+    </div>
+
+    <div>
+      <label class="block font-medium">Gemstone</label>
+      <input
+        type="text"
+        name="gemstone"
+        value="{{ item.gemstone or '' }}"
+        disabled
+        class="w-full border rounded p-2"
+      >
+    </div>
+
+    <div class="grid grid-cols-2 gap-4">
+      <div>
+        <label class="block font-medium">Weight (g)</label>
+        <input
+          type="number"
+          step="0.01"
+          name="weight"
+          value="{{ '%.2f'|format(item.weight) }}"
+          disabled
+          class="w-full border rounded p-2"
+        >
+      </div>
+      <div>
+        <label class="block font-medium">Price</label>
+        <input
+          type="number"
+          step="0.01"
+          name="price"
+          value="{{ '%.2f'|format(item.price) }}"
+          disabled
+          class="w-full border rounded p-2"
+        >
+      </div>
+    </div>
+
+    <div>
+      <label class="block font-medium">Description</label>
+      <textarea
+        name="description"
+        disabled
+        class="w-full border rounded p-2"
+        rows="3"
+      >{{ item.description or '' }}</textarea>
+    </div>
+  </form>
 {% endblock %}
 
 {% block scripts %}
   <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.0/Sortable.min.js"></script>
   <script>
-    (function(){
-      const gallery = document.getElementById("gallery");
+    document.addEventListener("DOMContentLoaded", () => {
+      const itemId      = {{ item.id }};
+      const form        = document.getElementById("item-detail-form");
+      const editBtn     = document.getElementById("edit-btn");
+      const saveBtn     = document.getElementById("save-btn");
+      const cancelBtn   = document.getElementById("cancel-btn");
+      const uploadInput = document.getElementById("upload-input");
+      const uploadBtn   = document.getElementById("upload-btn");
+      const gallery     = document.getElementById("gallery");
 
+      // Inline-edit logic
+      const original = {};
+      form.querySelectorAll("input[name], textarea[name]").forEach(el => {
+        original[el.name] = el.value;
+      });
+      function setDisabled(disabled) {
+        form.querySelectorAll("input[name], textarea[name]").forEach(el => {
+          el.disabled = disabled;
+        });
+      }
+      editBtn.addEventListener("click", () => {
+        setDisabled(false);
+        editBtn.hidden   = true;
+        saveBtn.hidden   = false;
+        cancelBtn.hidden = false;
+      });
+      cancelBtn.addEventListener("click", () => {
+        Object.keys(original).forEach(key => {
+          form.querySelector(`[name="${key}"]`).value = original[key];
+        });
+        setDisabled(true);
+        editBtn.hidden   = false;
+        saveBtn.hidden   = true;
+        cancelBtn.hidden = true;
+      });
+      saveBtn.addEventListener("click", async () => {
+        const data = {};
+        form.querySelectorAll("input[name], textarea[name]").forEach(el => {
+          data[el.name] = el.value || null;
+        });
+        const res = await fetch(`/api/items/${itemId}`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(data),
+        });
+        if (!res.ok) {
+          const err = await res.json().catch(() => ({}));
+          return alert("Update failed: " + (err.detail || res.status));
+        }
+        const updated = await res.json();
+        Object.keys(data).forEach(key => {
+          original[key] = updated[key] ?? "";
+          form.querySelector(`[name="${key}"]`).value = updated[key] ?? "";
+        });
+        setDisabled(true);
+        editBtn.hidden   = false;
+        saveBtn.hidden   = true;
+        cancelBtn.hidden = true;
+      });
+
+      // Gallery helpers
       function readOrder() {
         return Array.from(gallery.children).map(li => li.dataset.id);
       }
-
       async function refreshGallery() {
-        const imgs = await fetch(`/api/items/{{ item.id }}/images`).then(r=>r.json());
-        const orderMap = {};
-        imgs.forEach(i=> orderMap[i.id] = i.sort_order);
-        for(const li of gallery.children){
-          const id = li.dataset.id;
+        const imgs = await fetch(`/api/items/${itemId}/images`).then(r => r.json());
+        const orderMap = imgs.reduce((o,i) => (o[i.id] = i.sort_order, o), {});
+        for (const li of gallery.children) {
           const badge = li.querySelector("span");
-          if(orderMap[id]===1){
-            if(!badge){
+          if (orderMap[li.dataset.id] === 1) {
+            if (!badge) {
               const s = document.createElement("span");
-              s.textContent="★ Thumbnail";
-              s.className="absolute top-2 left-2 bg-yellow-400 text-white px-1 rounded text-sm z-10";
+              s.textContent = "★ Thumbnail";
+              s.className = "absolute top-2 left-2 bg-yellow-400 text-white px-1 rounded text-sm z-10";
               li.appendChild(s);
             }
-          } else if(badge){
+          } else if (badge) {
             badge.remove();
           }
         }
       }
 
-      // 1) drag-and-drop reorder
+      // Drag & reorder
       new Sortable(gallery, {
         animation: 150,
         onEnd: async () => {
-          await fetch(`/api/items/{{ item.id }}/images/reorder`, {
+          await fetch(`/api/items/${itemId}/images/reorder`, {
             method: "PATCH",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ new_order: readOrder() }),
@@ -113,39 +224,53 @@
         }
       });
 
-      // 2) click to set thumbnail (ignore clicks on delete buttons here)
+      // Per-image delete & thumbnail click
       gallery.addEventListener("click", async e => {
-        if (e.target.matches(".image-delete-btn")) return;
+        if (e.target.matches(".image-delete-btn")) {
+          const imgId = e.target.dataset.imageId;
+          if (!confirm("Delete this image?")) return;
+          const r = await fetch(`/api/items/${itemId}/images/${imgId}`, { method: "DELETE" });
+          if (r.status === 204) {
+            e.target.closest("li[data-id]").remove();
+            await refreshGallery();
+          } else {
+            alert("Failed to delete image");
+          }
+          return;
+        }
         const li = e.target.closest("li[data-id]");
         if (!li) return;
-        const clickedId = li.dataset.id;
-        const rest = readOrder().filter(i=>i!==clickedId);
-        await fetch(`/api/items/{{ item.id }}/images/reorder`, {
+        const clicked = li.dataset.id;
+        const rest    = readOrder().filter(i => i !== clicked);
+        await fetch(`/api/items/${itemId}/images/reorder`, {
           method: "PATCH",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ new_order: [clickedId, ...rest] }),
+          body: JSON.stringify({ new_order: [clicked, ...rest] }),
         });
         await refreshGallery();
       });
 
-      // 3) per-image delete
-      gallery.addEventListener("click", async e => {
-        if (!e.target.matches(".image-delete-btn")) return;
-        const imgId = e.target.dataset.imageId;
-        if (!confirm("Delete this image?")) return;
-        const res = await fetch(`/api/items/{{ item.id }}/images/${imgId}`, {
-          method: "DELETE"
-        });
-        if (res.status === 204) {
-          e.target.closest("li[data-id]").remove();
-          await refreshGallery();
+      // Multi-upload handler
+      uploadBtn.addEventListener("click", async () => {
+        const files = Array.from(uploadInput.files);
+        if (!files.length) return alert("Select one or more images first");
+        uploadBtn.disabled = true;
+        const fd = new FormData();
+        files.forEach(f => fd.append("files", f));
+        const res = await fetch(`/api/items/${itemId}/images`, { method: "POST", body: fd });
+        if (!res.ok) {
+          const err = await res.json().catch(() => ({}));
+          alert("Upload failed: " + (err.detail || res.status));
         } else {
-          alert("Failed to delete image");
+          uploadInput.value = "";
+          await refreshGallery();
         }
+        uploadBtn.disabled = false;
       });
 
-      // initial badge & detail setup
+      // Initial setup
+      setDisabled(true);
       refreshGallery();
-    })();
+    });
   </script>
 {% endblock %}
