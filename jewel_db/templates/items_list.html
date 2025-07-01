@@ -1,55 +1,212 @@
 {% extends "base.html" %}
-{% block title %}All Items – Jewelry Inventory{% endblock %}
+{% block title %}All Jewelry Items – Inventory{% endblock %}
 
 {% block content %}
-  <h2 class="text-2xl font-semibold mb-4">All Items</h2>
+  <!-- FILTER BAR -->
+  <form method="get" class="mb-6 flex flex-wrap gap-4 items-end">
+    <div>
+      <label for="q" class="block text-sm font-medium">Search</label>
+      <input
+        type="text"
+        name="q"
+        id="q"
+        placeholder="Name contains…"
+        value="{{ q or '' }}"
+        class="mt-1 block w-full border rounded p-2"
+      />
+    </div>
+    <div>
+      <label for="material" class="block text-sm font-medium">Material</label>
+      <select name="material" id="material" class="mt-1 block w-full border rounded p-2">
+        <option value="">All Materials</option>
+        {% for m in materials %}
+          <option value="{{ m }}" {% if m == material %}selected{% endif %}>{{ m }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div>
+      <label for="gemstone" class="block text-sm font-medium">Gemstone</label>
+      <select name="gemstone" id="gemstone" class="mt-1 block w-full border rounded p-2">
+        <option value="">All Gemstones</option>
+        {% for g in gemstones %}
+          <option value="{{ g }}" {% if g == gemstone %}selected{% endif %}>{{ g }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div>
+      <button type="submit" class="bg-blue-600 text-white px-4 py-2 rounded mt-6">Filter</button>
+    </div>
+  </form>
 
-  <table class="min-w-full bg-white border">
-    <thead>
-      <tr class="bg-gray-100 text-left">
-        <th class="px-4 py-2 border">ID</th>
-        <th class="px-4 py-2 border">Name</th>
-        <th class="px-4 py-2 border">Description</th>
-        <th class="px-4 py-2 border">Material</th>
-        <th class="px-4 py-2 border">Gemstone</th>
-        <th class="px-4 py-2 border">Weight (g)</th>
-        <th class="px-4 py-2 border">Price</th>
-        <th class="px-4 py-2 border">Image</th>
-        <th class="px-4 py-2 border">Actions</th>
-      </tr>
-    </thead>
-    <tbody>
+  <!-- STATS TILES -->
+  <div class="mb-6 grid grid-cols-4 gap-4">
+    <div class="p-4 bg-white shadow rounded">
+      <h3 class="text-lg font-semibold">Total Items</h3>
+      <p class="text-2xl">{{ total_count }}</p>
+    </div>
+    <div class="p-4 bg-white shadow rounded">
+      <h3 class="text-lg font-semibold">Avg Price</h3>
+      <p class="text-2xl">{{ '%.2f'|format(avg_price) }} €</p>
+    </div>
+    <div class="p-4 bg-white shadow rounded">
+      <h3 class="text-lg font-semibold">Total Weight</h3>
+      <p class="text-2xl">{{ '%.2f'|format(total_weight) }} g</p>
+    </div>
+    <div class="p-4 bg-white shadow rounded">
+      <h3 class="text-lg font-semibold">No Image</h3>
+      <p class="text-2xl">{{ no_count }}</p>
+    </div>
+  </div>
+
+  <!-- VIEW TOGGLE -->
+  <div class="mb-4 flex space-x-2">
+    <button id="grid-toggle" class="bg-gray-200 px-3 py-1 rounded">Grid View</button>
+    <button id="list-toggle" class="bg-gray-200 px-3 py-1 rounded">List View</button>
+  </div>
+
+  <!-- GRID VIEW -->
+  <div id="grid-view">
+    <div class="grid grid-cols-3 gap-6">
       {% for item in items %}
-      <tr class="hover:bg-gray-50">
-        <td class="px-4 py-2 border">{{ item.id }}</td>
-        <td class="px-4 py-2 border">
-          <a href="/items/{{ item.id }}" class="text-blue-600 hover:underline">
-            {{ item.name }}
-          </a>
-        </td>
-        <td class="px-4 py-2 border">{{ item.description or '—' }}</td>
-        <td class="px-4 py-2 border">{{ item.material or '—' }}</td>
-        <td class="px-4 py-2 border">{{ item.gemstone or '—' }}</td>
-        <td class="px-4 py-2 border">
-          {{ "%.2f"|format(item.weight) if item.weight is not none else '—' }}
-        </td>
-        <td class="px-4 py-2 border">
-          {{ "%.2f"|format(item.price) if item.price is not none else '—' }}
-        </td>
-        <td class="px-4 py-2 border">
-          {% if thumbs[item.id] %}
-            <img src="{{ thumbs[item.id] }}"
-                 class="w-12 h-12 object-cover rounded" />
-          {% else %}
-            — 
-          {% endif %}
-        </td>
-        <td class="px-4 py-2 border space-x-2">
-          <a href="/items/{{ item.id }}/edit" class="text-blue-600">Edit</a>
-          <button data-id="{{ item.id }}" class="delete-btn text-red-600">Delete</button>
-        </td>
-      </tr>
+      <div class="bg-white shadow rounded overflow-hidden">
+        {% if thumbs[item.id] %}
+        <img
+          src="{{ thumbs[item.id] }}"
+          class="w-full h-40 object-cover"
+          alt="Thumbnail for {{ item.name }}"
+        />
+        {% else %}
+        <div class="w-full h-40 bg-gray-100 flex items-center justify-center">
+          No Image
+        </div>
+        {% endif %}
+        <div class="p-4">
+          <h4 class="text-lg font-semibold mb-1">{{ item.name }}</h4>
+          <p class="text-sm text-gray-600 mb-2">{{ item.material or '—' }}</p>
+          <div class="flex justify-between items-center">
+            <a href="/items/{{ item.id }}" class="text-blue-600 hover:underline text-sm">View</a>
+            <p class="text-sm font-medium">{{ '%.2f'|format(item.price) }} €</p>
+          </div>
+        </div>
+      </div>
       {% endfor %}
-    </tbody>
-  </table>
+    </div>
+  </div>
+
+  <!-- LIST VIEW -->
+  <div id="list-view" class="hidden">
+    <table class="min-w-full bg-white">
+      <thead>
+        <tr>
+          <th class="px-4 py-2">
+            <input type="checkbox" id="select-all" />
+          </th>
+          <th class="px-4 py-2 text-left">Name</th>
+          <th class="px-4 py-2 text-left">Material</th>
+          <th class="px-4 py-2 text-left">Gemstone</th>
+          <th class="px-4 py-2 text-right">
+            <a
+              href="{{ request.url.include_query_params(
+                sort_by='weight',
+                sort_dir=('desc' if sort_by=='weight' and sort_dir=='asc' else 'asc')
+              ) }}"
+            >
+              Weight
+              {% if sort_by=='weight' %}
+                {% if sort_dir=='asc' %}↑{% else %}↓{% endif %}
+              {% endif %}
+            </a>
+          </th>
+          <th class="px-4 py-2 text-right">
+            <a
+              href="{{ request.url.include_query_params(
+                sort_by='price',
+                sort_dir=('desc' if sort_by=='price'  and sort_dir=='asc' else 'asc')
+              ) }}"
+            >
+              Price
+              {% if sort_by=='price' %}
+                {% if sort_dir=='asc' %}↑{% else %}↓{% endif %}
+              {% endif %}
+            </a>
+          </th>
+          <th class="px-4 py-2">Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for item in items %}
+        <tr class="border-t">
+          <td class="px-4 py-2">
+            <input type="checkbox" class="select-item" data-id="{{ item.id }}" />
+          </td>
+          <td class="px-4 py-2">{{ item.name }}</td>
+          <td class="px-4 py-2">{{ item.material or '—' }}</td>
+          <td class="px-4 py-2">{{ item.gemstone or '—' }}</td>
+          <td class="px-4 py-2 text-right">{{ '%.2f'|format(item.weight) }}</td>
+          <td class="px-4 py-2 text-right">{{ '%.2f'|format(item.price) }} €</td>
+          <td class="px-4 py-2">
+            <a href="/items/{{ item.id }}" class="text-blue-600 hover:underline text-sm">View</a>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+
+    <!-- Bulk delete -->
+    <div class="mt-4">
+      <button id="bulk-delete-btn" class="bg-red-600 text-white px-4 py-2 rounded">
+        Delete Selected
+      </button>
+    </div>
+  </div>
+
+  <!-- PAGINATION -->
+  <div class="mt-6 flex justify-center space-x-2">
+    {% if page > 1 %}
+      <a
+        href="{{ request.url.include_query_params(page=page-1) }}"
+        class="px-3 py-1 bg-gray-200 rounded"
+      >Prev</a>
+    {% endif %}
+    <span class="px-3 py-1">{{ page }} / {{ total_pages }}</span>
+    {% if page < total_pages %}
+      <a
+        href="{{ request.url.include_query_params(page=page+1) }}"
+        class="px-3 py-1 bg-gray-200 rounded"
+      >Next</a>
+    {% endif %}
+  </div>
+{% endblock %}
+
+{% block scripts %}
+  <script>
+    document.addEventListener("DOMContentLoaded", () => {
+      // Grid/List toggle
+      const grid  = document.getElementById("grid-view");
+      const list  = document.getElementById("list-view");
+      const btnG  = document.getElementById("grid-toggle");
+      const btnL  = document.getElementById("list-toggle");
+      btnG.addEventListener("click", () => { grid.classList.remove("hidden"); list.classList.add("hidden"); });
+      btnL.addEventListener("click", () => { list.classList.remove("hidden"); grid.classList.add("hidden"); });
+
+      // Bulk delete
+      const selectAll = document.getElementById("select-all");
+      const checkboxes = document.querySelectorAll(".select-item");
+      selectAll.addEventListener("change", () => {
+        checkboxes.forEach(cb => (cb.checked = selectAll.checked));
+      });
+
+      document.getElementById("bulk-delete-btn").addEventListener("click", async () => {
+        const selected = Array.from(checkboxes)
+          .filter(cb => cb.checked)
+          .map(cb => cb.dataset.id);
+        if (!selected.length) return alert("No items selected");
+        if (!confirm(`Delete ${selected.length} items?`)) return;
+        for (const id of selected) {
+          await fetch(`/api/items/${id}`, { method: "DELETE" });
+        }
+        window.location.reload();
+      });
+    });
+  </script>
 {% endblock %}
