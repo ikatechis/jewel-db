@@ -1,0 +1,55 @@
+{% extends "base.html" %}
+{% block title %}All Items – Jewelry Inventory{% endblock %}
+
+{% block content %}
+  <h2 class="text-2xl font-semibold mb-4">All Items</h2>
+
+  <table class="min-w-full bg-white border">
+    <thead>
+      <tr class="bg-gray-100 text-left">
+        <th class="px-4 py-2 border">ID</th>
+        <th class="px-4 py-2 border">Name</th>
+        <th class="px-4 py-2 border">Description</th>
+        <th class="px-4 py-2 border">Material</th>
+        <th class="px-4 py-2 border">Gemstone</th>
+        <th class="px-4 py-2 border">Weight (g)</th>
+        <th class="px-4 py-2 border">Price</th>
+        <th class="px-4 py-2 border">Image</th>
+        <th class="px-4 py-2 border">Actions</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for item in items %}
+      <tr class="hover:bg-gray-50">
+        <td class="px-4 py-2 border">{{ item.id }}</td>
+        <td class="px-4 py-2 border">
+          <a href="/items/{{ item.id }}" class="text-blue-600 hover:underline">
+            {{ item.name }}
+          </a>
+        </td>
+        <td class="px-4 py-2 border">{{ item.description or '—' }}</td>
+        <td class="px-4 py-2 border">{{ item.material or '—' }}</td>
+        <td class="px-4 py-2 border">{{ item.gemstone or '—' }}</td>
+        <td class="px-4 py-2 border">
+          {{ "%.2f"|format(item.weight) if item.weight is not none else '—' }}
+        </td>
+        <td class="px-4 py-2 border">
+          {{ "%.2f"|format(item.price) if item.price is not none else '—' }}
+        </td>
+        <td class="px-4 py-2 border">
+          {% if thumbs[item.id] %}
+            <img src="{{ thumbs[item.id] }}"
+                 class="w-12 h-12 object-cover rounded" />
+          {% else %}
+            — 
+          {% endif %}
+        </td>
+        <td class="px-4 py-2 border space-x-2">
+          <a href="/items/{{ item.id }}/edit" class="text-blue-600">Edit</a>
+          <button data-id="{{ item.id }}" class="delete-btn text-red-600">Delete</button>
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+{% endblock %}

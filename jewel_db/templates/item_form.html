@@ -1,0 +1,90 @@
+{% extends "base.html" %}
+{% block title %}{% if item %}Edit {{ item.name }}{% else %}Add New Item{% endif %}{% endblock %}
+
+{% block content %}
+<form id="item-form" class="space-y-4">
+  <input type="hidden" name="id" value="{{ item.id if item }}">
+
+  <div>
+    <label class="block mb-1">Name</label>
+    <input type="text" name="name" value="{{ item.name if item else '' }}" required class="w-full border rounded p-2">
+    <div class="error-msg text-red-600 text-sm mt-1"></div>
+  </div>
+
+  <div>
+    <label class="block mb-1">Material</label>
+    <input name="material" value="{{ item.material if item else '' }}" class="w-full border rounded p-2">
+    <div class="error-msg text-red-600 text-sm mt-1"></div>
+  </div>
+
+  <div>
+    <label class="block mb-1">Gemstone</label>
+    <input list="gemstone-list" name="gemstone" value="{{ item.gemstone if item else '' }}" placeholder="Select or type…" class="w-full border rounded p-2">
+    <datalist id="gemstone-list">
+      <option value="Diamond"><option value="Ruby"><option value="Sapphire">
+      <option value="Emerald"><option value="Pearl"><option value="Opal">
+      <option value="Other">
+    </datalist>
+    <div class="error-msg text-red-600 text-sm mt-1"></div>
+  </div>
+
+  <div class="grid grid-cols-2 gap-4">
+    <div>
+      <label class="block mb-1">Weight (g)</label>
+      <input type="number" step="0.01" name="weight" value="{{ item.weight if item else 0 }}" class="w-full border rounded p-2">
+      <div class="error-msg text-red-600 text-sm mt-1"></div>
+    </div>
+    <div>
+      <label class="block mb-1">Price</label>
+      <input type="number" step="0.01" name="price" value="{{ item.price if item else 0 }}" class="w-full border rounded p-2">
+      <div class="error-msg text-red-600 text-sm mt-1"></div>
+    </div>
+  </div>
+
+  <div>
+    <label class="block mb-1">Upload Images</label>
+    <input type="file" name="files" multiple accept="image/*" class="w-full">
+    <div class="error-msg text-red-600 text-sm mt-1"></div>
+  </div>
+
+  <div>
+    <label class="block mb-1">—or Image URL</label>
+    <input type="url" name="image_url" placeholder="https://…" value="{{ item.image_url if item else '' }}" class="w-full border rounded p-2">
+    <div class="error-msg text-red-600 text-sm mt-1"></div>
+  </div>
+
+  <div>
+    <label class="block mb-1">Description</label>
+    <textarea name="description" class="w-full border rounded p-2">{{ item.description if item else '' }}</textarea>
+    <div class="error-msg text-red-600 text-sm mt-1"></div>
+  </div>
+
+  <button type="submit" class="bg-blue-600 text-white px-4 py-2 rounded">
+    {% if item %}Save{% else %}Create{% endif %}
+  </button>
+</form>
+{% block scripts %}
+<script>
+document.getElementById('item-form').addEventListener('submit', async e => {
+  e.preventDefault();
+  const form=e.target, fd=new FormData(form);
+  const data=Object.fromEntries(fd.entries());
+  // upload files
+  if(fd.getAll('files').length){
+    const files=fd.getAll('files');
+    const upfd=new FormData();
+    files.forEach(f=>upfd.append('files',f));
+    await fetch(`/api/items/${data.id||''}/images`,{method:'POST',body:upfd});
+  }
+  // then create/update item
+  delete data.files;
+  await fetch(`/api/items/${data.id?data.id:''}`,{
+    method: data.id?'PATCH':'POST',
+    headers:{'Content-Type':'application/json'},
+    body:JSON.stringify(data)
+  });
+  window.location.href='/items';
+});
+</script>
+{% endblock %}
+{% endblock %}

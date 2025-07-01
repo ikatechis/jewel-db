@@ -1,11 +1,22 @@
-# app/config.py
-from pathlib import Path
+# jewel_db/config.py
 
-from dotenv import load_dotenv
+from pydantic import ConfigDict
+from pydantic_settings import BaseSettings
 
-BASE_DIR = Path(__file__).resolve().parent.parent
-load_dotenv(BASE_DIR / ".env")
 
-DATABASE_URL = "sqlite:///./app.db"
-SECRET_KEY = "your-secret-key"
-DEBUG = True
+class Settings(BaseSettings):
+    # tell Pydantic where to find your .env
+    model_config = ConfigDict(env_file=".env")
+
+    DATABASE_URL: str = "sqlite:///./jewel.db"
+    SECRET_KEY: str = "replace-me-with-secure-key"
+    DEBUG: bool = True
+
+
+# instantiate once
+settings = Settings()
+
+# expose for easy import elsewhere
+DATABASE_URL = settings.DATABASE_URL
+SECRET_KEY = settings.SECRET_KEY
+DEBUG = settings.DEBUG

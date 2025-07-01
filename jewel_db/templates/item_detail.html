@@ -1,0 +1,116 @@
+{% extends "base.html" %}
+{% block title %}{{ item.name }} – Jewelry Inventory{% endblock %}
+
+{% block content %}
+  <h2 class="text-2xl font-semibold mb-6">{{ item.name }}</h2>
+
+  <!-- Gallery Grid -->
+  <ul id="gallery" class="grid grid-cols-3 gap-4 mb-8">
+    {% for img in images %}
+    <li
+      data-id="{{ img.id }}"
+      class="relative cursor-move border rounded overflow-hidden"
+    >
+      <img src="{{ img.url }}"
+           class="w-full h-48 object-cover"
+      />
+      <!-- Thumbnail badge -->
+      {% if img.sort_order == 1 %}
+      <span
+        class="absolute top-2 left-2 bg-yellow-400 text-white px-1 rounded text-sm z-10"
+      >★ Thumbnail</span>
+      {% endif %}
+    </li>
+    {% endfor %}
+  </ul>
+
+  <!-- Item Details -->
+  <div class="space-y-2 text-gray-700">
+    <p><strong>ID:</strong> {{ item.id }}</p>
+    <p><strong>Material:</strong> {{ item.material or '—' }}</p>
+    <p><strong>Gemstone:</strong> {{ item.gemstone or '—' }}</p>
+    <p><strong>Weight:</strong>
+      {{ "%.2f"|format(item.weight) if item.weight is not none else '—' }} g
+    </p>
+    <p><strong>Price:</strong>
+      {{ "%.2f"|format(item.price) if item.price is not none else '—' }}
+    </p>
+    <p><strong>Description:</strong> {{ item.description or '—' }}</p>
+    <p><strong>Created At:</strong>
+      {{ item.created_at.strftime("%Y-%m-%d %H:%M:%S") }}
+    </p>
+  </div>
+{% endblock %}
+
+{% block scripts %}
+  <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.0/Sortable.min.js"></script>
+  <script>
+    (function(){
+      const gallery = document.getElementById("gallery");
+
+      // Helper to pull current order
+      function readOrder() {
+        return Array.from(gallery.children).map(li => li.dataset.id);
+      }
+
+      // Repaint the ★ badge on whichever has sort_order==1
+      async function refreshGallery() {
+        const resp = await fetch(`/api/items/{{ item.id }}`);
+        const data = await resp.json();
+        // we need images with sort_order, so ideally fetch /api/items/{id}/images
+        const imgs = await fetch(`/api/items/{{ item.id }}/images`).then(r=>r.json());
+        const orderMap = {};
+        imgs.forEach(i=> orderMap[i.id] = i.sort_order);
+        // reorder DOM to match readOrder() (if changed)
+        // then update badges
+        for(const li of gallery.children){
+          const id = li.dataset.id;
+          const badge = li.querySelector("span");
+          if(orderMap[id]===1){
+            if(!badge){
+              const s = document.createElement("span");
+              s.textContent="★ Thumbnail";
+              s.className="absolute top-2 left-2 bg-yellow-400 text-white px-1 rounded text-sm z-10";
+              li.appendChild(s);
+            }
+          } else {
+            if(badge) badge.remove();
+          }
+        }
+      }
+
+      // 1) Drag-and-drop reorder
+      new Sortable(gallery, {
+        animation: 150,
+        onEnd: async () => {
+          const newOrder = readOrder();
+          await fetch(`/api/items/{{ item.id }}/images/reorder`, {
+            method: "PATCH",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ new_order: newOrder }),
+          });
+          await refreshGallery();
+        }
+      });
+
+      // 2) Click any <li> to make that image the thumbnail
+      gallery.addEventListener("click", async (e) => {
+        const li = e.target.closest("li[data-id]");
+        if (!li) return;
+        const clickedId = li.dataset.id;
+        // bump that ID to first position
+        const current = readOrder().filter(i=>i!==clickedId);
+        const newOrder = [clickedId, ...current];
+        await fetch(`/api/items/{{ item.id }}/images/reorder`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ new_order: newOrder }),
+        });
+        await refreshGallery();
+      });
+
+      // initial badge setup
+      refreshGallery();
+    })();
+  </script>
+{% endblock %}

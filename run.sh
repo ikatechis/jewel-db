@@ -13,7 +13,7 @@ if [ -d ".venv" ]; then
 fi
 
 # Run Uvicorn with auto‐reload for development
-poetry run uvicorn jewelry_inventory.main:app \
+poetry run uvicorn jewel_db.main:app \
   --reload \
   --host 0.0.0.0 \
   --port 8000

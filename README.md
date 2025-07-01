@@ -56,7 +56,7 @@ A modern, lightweight application to manage, catalog, and analyze a jewelry stor
 
    ```bash
    # Option A: Poetry shell
-   poetry shell
+   poetry activate env
 
    # Option B: Source the in-project venv
    source .venv/bin/activate
@@ -139,52 +139,6 @@ jobs:
       - run: pre-commit run --all-files --show-diff-on-failure
 ```
 
-## .gitignore
-
-```gitignore
-# Python bytecode
-__pycache__/
-*.py[cod]
-*$py.class
-
-# Virtual environments
-.venv/
-venv/
-env/
-ENV/
-
-# Environment file
-.env
-
-# Database files
-*.db
-*.sqlite3
-
-# Media uploads
-media/
-
-# Build artifacts
-build/
-dist/
-*.egg-info/
-.eggs/
-
-# Docker
-docker-compose.override.yml
-*.log
-
-# IDEs and editors
-.vscode/
-.idea/
-*.sublime-project
-*.sublime-workspace
-
-# macOS
-.DS_Store
-
-# pyenv
-.python-version
-```
 
 ## Future Improvements
 
@@ -196,5 +150,3 @@ docker-compose.override.yml
 * Docker Compose for local multi-service development
 
 ---
-
-✨ You’re all set! Next up: defining data models, building CRUD endpoints, and designing the dashboard. Let me know where you’d like to dive in!
