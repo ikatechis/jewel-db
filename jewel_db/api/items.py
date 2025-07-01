@@ -28,7 +28,11 @@ MAX_DIMENSION = 2000  # pixels
 # ─── Image endpoints ─────────────────────────────────────────────────────────
 
 
-@router.post("/{item_id}/images", response_model=list[JewelryImage], status_code=201)
+@router.post(
+    "/{item_id}/images",
+    response_model=list[JewelryImage],
+    status_code=201,
+)
 async def upload_item_images(
     item_id: int,
     files: list[UploadFile] = File(...),
@@ -50,12 +54,10 @@ async def upload_item_images(
 
     MEDIA_DIR.mkdir(exist_ok=True)
     saved: list[JewelryImage] = []
-
     for idx, file in enumerate(files):
-        # Read contents
         contents = await file.read()
 
-        # Validate type and size
+        # Validate type & size
         if file.content_type not in ALLOWED_TYPES:
             raise HTTPException(status_code=400, detail="Invalid image type")
         if len(contents) > MAX_FILE_SIZE:
@@ -77,7 +79,9 @@ async def upload_item_images(
 
         # Persist ORM object
         dbi = JewelryImage(
-            url=f"/media/{fname}", sort_order=max_order + idx + 1, item_id=item_id
+            url=f"/media/{fname}",
+            sort_order=max_order + idx + 1,
+            item_id=item_id,
         )
         session.add(dbi)
         saved.append(dbi)
@@ -86,7 +90,35 @@ async def upload_item_images(
     return saved
 
 
-@router.patch("/{item_id}/images/reorder", status_code=204)
+@router.get(
+    "/{item_id}/images",
+    response_model=list[JewelryImage],
+)
+def list_item_images(
+    item_id: int,
+    session: Session = Depends(get_session),
+):
+    """
+    Return all images for an item, ordered by sort_order.
+    This lets your front-end do a GET /api/items/{item_id}/images
+    instead of 405'ing.
+    """
+    item = session.get(JewelryItem, item_id)
+    if not item:
+        raise HTTPException(status_code=404, detail="Item not found")
+
+    images = session.exec(
+        select(JewelryImage)
+        .where(JewelryImage.item_id == item_id)
+        .order_by(JewelryImage.sort_order)
+    ).all()
+    return images
+
+
+@router.patch(
+    "/{item_id}/images/reorder",
+    status_code=204,
+)
 def reorder_images(
     item_id: int,
     new_order: list[int] = Body(..., embed=True),
@@ -103,8 +135,16 @@ def reorder_images(
 # ─── CRUD endpoints ───────────────────────────────────────────────────────────
 
 
-@router.post("/", response_model=JewelryItem, status_code=201)
-def create_item(*, session: Session = Depends(get_session), item_in: JewelryItemCreate):
+@router.post(
+    "/",
+    response_model=JewelryItem,
+    status_code=201,
+)
+def create_item(
+    *,
+    session: Session = Depends(get_session),
+    item_in: JewelryItemCreate,
+):
     item = JewelryItem.model_validate(item_in)
     session.add(item)
     try:
@@ -116,22 +156,38 @@ def create_item(*, session: Session = Depends(get_session), item_in: JewelryItem
     return item
 
 
-@router.get("/", response_model=list[JewelryItem])
+@router.get(
+    "/",
+    response_model=list[JewelryItem],
+)
 def list_items(*, session: Session = Depends(get_session)):
     return session.exec(select(JewelryItem)).all()
 
 
-@router.get("/{item_id}", response_model=JewelryItem)
-def get_item(*, session: Session = Depends(get_session), item_id: int):
+@router.get(
+    "/{item_id}",
+    response_model=JewelryItem,
+)
+def get_item(
+    *,
+    session: Session = Depends(get_session),
+    item_id: int,
+):
     item = session.get(JewelryItem, item_id)
     if not item:
         raise HTTPException(status_code=404, detail="Item not found")
     return item
 
 
-@router.patch("/{item_id}", response_model=JewelryItem)
+@router.patch(
+    "/{item_id}",
+    response_model=JewelryItem,
+)
 def update_item(
-    *, session: Session = Depends(get_session), item_id: int, item_in: JewelryItemUpdate
+    *,
+    session: Session = Depends(get_session),
+    item_id: int,
+    item_in: JewelryItemUpdate,
 ):
     item = session.get(JewelryItem, item_id)
     if not item:
@@ -148,8 +204,15 @@ def update_item(
     return item
 
 
-@router.delete("/{item_id}", status_code=204)
-def delete_item(*, session: Session = Depends(get_session), item_id: int):
+@router.delete(
+    "/{item_id}",
+    status_code=204,
+)
+def delete_item(
+    *,
+    session: Session = Depends(get_session),
+    item_id: int,
+):
     item = session.get(JewelryItem, item_id)
     if not item:
         raise HTTPException(status_code=404, detail="Item not found")
