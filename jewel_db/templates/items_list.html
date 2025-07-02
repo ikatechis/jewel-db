@@ -1,218 +1,190 @@
+<!-- jewel_db/templates/items_list.html -->
 {% extends "base.html" %}
-{% block title %}All Jewelry Items – Inventory{% endblock %}
+
+{% block title %}All Jewelry Items{% endblock %}
 
 {% block content %}
-  <!-- FILTER BAR -->
-  <form method="get" class="mb-6 flex flex-wrap gap-4 items-end">
-    <div>
-      <label for="q" class="block text-sm font-medium">Search</label>
-      <input
-        type="text"
-        name="q"
-        id="q"
-        placeholder="Name contains…"
-        value="{{ q or '' }}"
-        class="mt-1 block w-full border rounded p-2"
-      />
-    </div>
-    <div>
-      <label for="material" class="block text-sm font-medium">Material</label>
-      <select name="material" id="material" class="mt-1 block w-full border rounded p-2">
-        <option value="">All Materials</option>
-        {% for m in materials %}
-          <option value="{{ m }}" {% if m == material %}selected{% endif %}>{{ m }}</option>
-        {% endfor %}
-      </select>
-    </div>
-    <div>
-      <label for="gemstone" class="block text-sm font-medium">Gemstone</label>
-      <select name="gemstone" id="gemstone" class="mt-1 block w-full border rounded p-2">
-        <option value="">All Gemstones</option>
-        {% for g in gemstones %}
-          <option value="{{ g }}" {% if g == gemstone %}selected{% endif %}>{{ g }}</option>
-        {% endfor %}
-      </select>
-    </div>
-    <div>
-      <button type="submit" class="bg-blue-600 text-white px-4 py-2 rounded mt-6">
-        Filter
-      </button>
-    </div>
+  <!-- Filter form -->
+  <form
+    method="get"
+    action="{{ url_for('list_items_page') }}"
+    class="mb-6 flex flex-wrap items-center space-x-4"
+  >
+    <input
+      type="text"
+      name="q"
+      placeholder="Search"
+      value="{{ q or '' }}"
+      class="border border-gray-300 rounded px-3 py-2 flex-1"
+    />
+    <select name="material" class="border border-gray-300 rounded px-3 py-2">
+      <option value="">All Materials</option>
+      {% for m in materials %}
+        <option value="{{ m }}" {% if m == material %}selected{% endif %}>
+          {{ m }}
+        </option>
+      {% endfor %}
+    </select>
+    <select name="gemstone" class="border border-gray-300 rounded px-3 py-2">
+      <option value="">All Gemstones</option>
+      {% for g in gemstones %}
+        <option value="{{ g }}" {% if g == gemstone %}selected{% endif %}>
+          {{ g }}
+        </option>
+      {% endfor %}
+    </select>
+    <button
+      type="submit"
+      class="bg-blue-600 text-white rounded px-4 py-2"
+    >
+      Filter
+    </button>
   </form>
 
-  <!-- STATS TILES -->
-  <div class="mb-6 grid grid-cols-4 gap-4">
-    <div class="p-4 bg-white shadow rounded">
-      <h3 class="text-lg font-semibold">Total Items</h3>
-      <p class="text-2xl">{{ total_count }}</p>
+  <!-- Stats panel -->
+  <div class="grid grid-cols-4 gap-4 mb-6 text-center">
+    <div>
+      <h4 class="font-medium">Total Items</h4>
+      <p>{{ total_count }}</p>
     </div>
-    <div class="p-4 bg-white shadow rounded">
-      <h3 class="text-lg font-semibold">Avg Price</h3>
-      <p class="text-2xl">{{ '%.2f'|format(avg_price) }} €</p>
+    <div>
+      <h4 class="font-medium">Avg Price</h4>
+      <p>{{ '%.2f'|format(avg_price) }} €</p>
     </div>
-    <div class="p-4 bg-white shadow rounded">
-      <h3 class="text-lg font-semibold">Total Weight</h3>
-      <p class="text-2xl">{{ '%.2f'|format(total_weight) }} g</p>
+    <div>
+      <h4 class="font-medium">Total Weight</h4>
+      <p>{{ '%.2f'|format(total_weight) }} g</p>
     </div>
-    <div class="p-4 bg-white shadow rounded">
-      <h3 class="text-lg font-semibold">No Image</h3>
-      <p class="text-2xl">{{ no_count }}</p>
+    <div>
+      <h4 class="font-medium">No Image</h4>
+      <p>{{ no_count }}</p>
     </div>
   </div>
 
-  <!-- VIEW TOGGLE -->
-  <div class="mb-4 flex space-x-2">
-    <button id="grid-toggle" class="bg-gray-200 px-3 py-1 rounded">Grid View</button>
-    <button id="list-toggle" class="bg-gray-200 px-3 py-1 rounded">List View</button>
+  <!-- View toggles -->
+  <div class="mb-4">
+    <button id="gridView" class="px-3 py-1 bg-gray-200 rounded">Grid View</button>
+    <button id="listView" class="px-3 py-1 bg-gray-200 rounded">List View</button>
   </div>
 
-  <!-- GRID VIEW -->
-  <div id="grid-view">
-    <div id="grid-container" class="grid grid-cols-3 gap-6">
-      {% for item in items %}
-      <div class="item-card bg-white shadow rounded overflow-hidden" data-id="{{ item.id }}">
+  <!-- Grid display -->
+  <div id="grid" class="grid grid-cols-3 gap-6">
+    {% for item in items %}
+      <div class="bg-white shadow rounded p-4">
         {% if thumbs[item.id] %}
-        <img
-          src="{{ thumbs[item.id] }}"
-          class="w-full h-40 object-cover"
-          alt="Thumbnail for {{ item.name }}"
-        />
+          <img
+            src="{{ thumbs[item.id] }}"
+            alt="{{ item.name }}"
+            class="h-32 w-full object-cover mb-2 rounded"
+          />
         {% else %}
-        <div class="w-full h-40 bg-gray-100 flex items-center justify-center">
-          No Image
-        </div>
-        {% endif %}
-        <div class="p-4">
-          <h4 class="text-lg font-semibold mb-1">{{ item.name }}</h4>
-          <p class="text-sm text-gray-600 mb-2">{{ item.material or '—' }}</p>
-          <div class="flex justify-between items-center">
-            <a href="/items/{{ item.id }}" class="text-blue-600 hover:underline text-sm">View</a>
-            <p class="text-sm font-medium">{{ '%.2f'|format(item.price) }} €</p>
+          <div class="h-32 w-full bg-gray-100 mb-2 rounded flex items-center justify-center">
+            No Image
           </div>
-        </div>
+        {% endif %}
+        <h5 class="font-semibold">{{ item.name }}</h5>
+        <p class="text-sm text-gray-600">{{ item.material or '—' }}</p>
+        <p class="text-sm">{{ '%.2f'|format(item.price) }} €</p>
+        <a
+          href="{{ url_for('item_detail', item_id=item.id) }}"
+          class="text-blue-600 hover:underline"
+        >
+          View
+        </a>
       </div>
-      {% endfor %}
-    </div>
+    {% endfor %}
   </div>
 
-  <!-- LIST VIEW -->
-  <div id="list-view" class="hidden">
-    <table class="min-w-full bg-white">
-      <thead>
-        <tr>
-          <th class="px-4 py-2"><input type="checkbox" id="select-all" /></th>
-          <th class="px-4 py-2 text-left">Name</th>
-          <th class="px-4 py-2 text-left">Image</th>
-          <th class="px-4 py-2 text-left">Material</th>
-          <th class="px-4 py-2 text-left">Gemstone</th>
-          <th class="px-4 py-2 text-right">
-            <a href="{{ request.url.include_query_params(sort_by='weight', sort_dir=(sort_by=='weight' and sort_dir=='asc' and 'desc' or 'asc')) }}">
-              Weight {% if sort_by=='weight' %}{{ sort_dir=='asc' and '↑' or '↓' }}{% endif %}
-            </a>
-          </th>
-          <th class="px-4 py-2 text-right">
-            <a href="{{ request.url.include_query_params(sort_by='price', sort_dir=(sort_by=='price' and sort_dir=='asc' and 'desc' or 'asc')) }}">
-              Price {% if sort_by=='price' %}{{ sort_dir=='asc' and '↑' or '↓' }}{% endif %}
-            </a>
-          </th>
-          <th class="px-4 py-2">Actions</th>
-        </tr>
-      </thead>
-      <tbody>
-        {% for item in items %}
-        <tr class="border-t">
-          <td class="px-4 py-2">
-            <input type="checkbox" class="select-item" data-id="{{ item.id }}" />
-          </td>
+  <!-- Table display -->
+  <table
+    id="list"
+    class="min-w-full mt-6 hidden bg-white shadow rounded overflow-hidden"
+  >
+    <thead class="bg-gray-100">
+      <tr>
+        <th class="px-4 py-2 text-left">Name</th>
+        <th class="px-4 py-2 text-left">Image</th>
+        <th class="px-4 py-2 text-left">Material</th>
+        <th class="px-4 py-2 text-left">Gemstone</th>
+        <th class="px-4 py-2 text-left">
+          Weight
+          {% if sort_by=='weight' %}{{ sort_dir=='asc' and '↑' or '↓' }}{% endif %}
+        </th>
+        <th class="px-4 py-2 text-left">
+          Price
+          {% if sort_by=='price' %}{{ sort_dir=='asc' and '↑' or '↓' }}{% endif %}
+        </th>
+        <th class="px-4 py-2 text-left">Actions</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for item in items %}
+        <tr class="border-b">
           <td class="px-4 py-2">{{ item.name }}</td>
           <td class="px-4 py-2">
             {% if thumbs[item.id] %}
-            <img
-              src="{{ thumbs[item.id] }}"
-              class="w-12 h-12 object-cover rounded"
-              alt="Thumb for {{ item.name }}"
-            />
+              <img
+                src="{{ thumbs[item.id] }}"
+                alt="{{ item.name }}"
+                class="h-12 w-12 object-cover rounded"
+              />
             {% else %}
-            <span class="text-gray-400 text-xs">—</span>
+              —
             {% endif %}
           </td>
           <td class="px-4 py-2">{{ item.material or '—' }}</td>
           <td class="px-4 py-2">{{ item.gemstone or '—' }}</td>
-          <td class="px-4 py-2 text-right">{{ '%.2f'|format(item.weight) }}</td>
-          <td class="px-4 py-2 text-right">{{ '%.2f'|format(item.price) }} €</td>
+          <td class="px-4 py-2">{{ '%.2f'|format(item.weight) }}</td>
+          <td class="px-4 py-2">{{ '%.2f'|format(item.price) }} €</td>
           <td class="px-4 py-2">
-            <a href="/items/{{ item.id }}" class="text-blue-600 hover:underline text-sm">View</a>
+            <a
+              href="{{ url_for('item_detail', item_id=item.id) }}"
+              class="text-blue-600 hover:underline"
+            >
+              View
+            </a>
           </td>
         </tr>
-        {% endfor %}
-      </tbody>
-    </table>
-    <div class="mt-4">
-      <button id="bulk-delete-btn" class="bg-red-600 text-white px-4 py-2 rounded">
-        Delete Selected
-      </button>
-    </div>
-  </div>
+      {% endfor %}
+    </tbody>
+  </table>
 
-  <!-- PAGINATION -->
-  <div class="mt-6 flex justify-center space-x-2">
+  <!-- Pagination -->
+  <div class="mt-6 flex justify-center items-center space-x-4">
     {% if page > 1 %}
-      <a href="{{ request.url.include_query_params(page=page-1) }}" class="px-3 py-1 bg-gray-200 rounded">Prev</a>
+      <a
+        href="{{ url_for('list_items_page', page=page-1, q=q, material=material, gemstone=gemstone) }}"
+        class="px-3 py-1 bg-gray-200 rounded"
+      >
+        Prev
+      </a>
     {% endif %}
-    <span class="px-3 py-1">{{ page }} / {{ total_pages }}</span>
+    <span>Page {{ page }} of {{ total_pages }}</span>
     {% if page < total_pages %}
-      <a href="{{ request.url.include_query_params(page=page+1) }}" class="px-3 py-1 bg-gray-200 rounded">Next</a>
+      <a
+        href="{{ url_for('list_items_page', page=page+1, q=q, material=material, gemstone=gemstone) }}"
+        class="px-3 py-1 bg-gray-200 rounded"
+      >
+        Next
+      </a>
     {% endif %}
   </div>
 {% endblock %}
 
 {% block scripts %}
-  <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.0/Sortable.min.js"></script>
-  <script>
-    document.addEventListener("DOMContentLoaded", () => {
-      // Grid/List toggle
-      const grid = document.getElementById("grid-view");
-      const list = document.getElementById("list-view");
-      document.getElementById("grid-toggle").onclick = () => {
-        grid.classList.remove("hidden");
-        list.classList.add("hidden");
-      };
-      document.getElementById("list-toggle").onclick = () => {
-        list.classList.remove("hidden");
-        grid.classList.add("hidden");
-      };
+<script>
+  const gridView = document.getElementById('gridView');
+  const listView = document.getElementById('listView');
+  const grid = document.getElementById('grid');
+  const list = document.getElementById('list');
 
-      // Bulk delete
-      const selectAll = document.getElementById("select-all");
-      const checkboxes = document.querySelectorAll(".select-item");
-      selectAll.addEventListener("change", () => {
-        checkboxes.forEach(cb => (cb.checked = selectAll.checked));
-      });
-      document.getElementById("bulk-delete-btn").addEventListener("click", async () => {
-        const selected = Array.from(checkboxes)
-          .filter(cb => cb.checked)
-          .map(cb => cb.dataset.id);
-        if (!selected.length) return alert("No items selected");
-        if (!confirm(`Delete ${selected.length} items?`)) return;
-        for (const id of selected) {
-          await fetch(`/api/items/${id}`, { method: "DELETE" });
-        }
-        window.location.reload();
-      });
-
-      // Drag‐to‐reorder the grid cards
-      new Sortable(document.getElementById("grid-container"), {
-        animation: 150,
-        onEnd: async () => {
-          const newOrder = Array.from(document.querySelectorAll(".item-card"))
-            .map(el => el.dataset.id);
-          await fetch("/api/items/reorder", {
-            method: "PATCH",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ new_order: newOrder }),
-          });
-        },
-      });
-    });
-  </script>
+  gridView.addEventListener('click', () => {
+    grid.classList.remove('hidden');
+    list.classList.add('hidden');
+  });
+  listView.addEventListener('click', () => {
+    list.classList.remove('hidden');
+    grid.classList.add('hidden');
+  });
+</script>
 {% endblock %}
