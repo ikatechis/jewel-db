@@ -1,3 +1,4 @@
+<!-- jewel_db/templates/item_detail.html -->
 {% extends "base.html" %}
 {% block title %}{{ item.name }} – Jewelry Inventory{% endblock %}
 
@@ -55,7 +56,12 @@
     <label class="block font-medium mb-2">Upload Images</label>
     <div class="flex items-center space-x-2">
       <input id="upload-input" type="file" multiple accept="image/*" class="border rounded p-1"/>
-      <input id="url-input"   type="url" placeholder="Or enter image URL" class="border rounded p-1 flex-1"/>
+      <button type="button"
+              id="detail-webcam-btn"
+              class="bg-gray-600 text-white px-2 py-1 rounded text-sm">
+        📷 Capture
+      </button>
+      <input id="url-input" type="url" placeholder="Or enter image URL" class="border rounded p-1 flex-1"/>
       <button id="upload-btn" class="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1 rounded text-sm">Upload</button>
     </div>
   </div>
@@ -104,12 +110,17 @@ document.addEventListener("DOMContentLoaded", () => {
   const ziBtn    = $("lb-zoom-in");
   const zoBtn    = $("lb-zoom-out");
 
+  /* ---------- webcam helper ---------- */
+  if (typeof initWebcamCapture === "function") {
+    initWebcamCapture("#detail-webcam-btn", "#upload-input");
+  }
+
   /* ---------- inline-edit ---------- */
   const original = {};
   form.querySelectorAll("input[name], textarea[name]").forEach(el => original[el.name] = el.value);
   const setDisabled = d => form.querySelectorAll("input[name], textarea[name]").forEach(el => (el.disabled = d));
 
-  editBtn.onclick   = () => { setDisabled(false); editBtn.hidden = true; saveBtn.hidden = cancelBtn.hidden = true; };
+  editBtn.onclick   = () => { setDisabled(false); editBtn.hidden = true; saveBtn.hidden = cancelBtn.hidden = false; };
   cancelBtn.onclick = () => {
     Object.keys(original).forEach(k => { form.querySelector(`[name="${k}"]`).value = original[k]; });
     setDisabled(true); editBtn.hidden = false; saveBtn.hidden = cancelBtn.hidden = true;
