@@ -1,3 +1,4 @@
+<!-- File: jewel_db/templates/base.html -->
 <!DOCTYPE html>
 <html lang="en">
   <head>
@@ -9,7 +10,7 @@
 
     <!-- Global helper scripts (loaded once for all pages) -->
     <script src="{{ url_for('static', path='js/webcam_capture.js') }}"></script>
-    <script type="module" src="{{ url_for('static', path='js/tag_select.js') }}"></script>
+    {# Modules are loaded per-page; no duplicate tag_select import here #}
 
     {% block extra_scripts %}{% endblock %}
   </head>
@@ -23,9 +24,9 @@
 
         <!-- Global navigation -->
         <nav class="space-x-4 text-lg">
-          <a href="/items"          class="hover:underline">Items</a>
-          <a href="/tags"           class="hover:underline">Tags</a>   <!-- NEW -->
-          <a href="/items/create"   class="hover:underline">Add&nbsp;Item</a>
+          <a href="/items" class="hover:underline">Items</a>
+          <a href="/tags" class="hover:underline">Tags</a>
+          <a href="/items/create" class="hover:underline">Add&nbsp;Item</a>
         </nav>
       </div>
     </header>
@@ -42,4 +43,3 @@
     {% block scripts %}{% endblock %}
   </body>
 </html>
-
