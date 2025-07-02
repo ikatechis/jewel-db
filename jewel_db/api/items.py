@@ -233,28 +233,26 @@ def update_item(
     if not item:
         raise HTTPException(status_code=404, detail="Item not found")
 
-    # ── 1. scalar fields (everything except tags) ───────────────
-    data = item_in.model_dump(exclude_unset=True, exclude={"tags"})
-    for k, v in data.items():
+    # 1) update scalar columns
+    for k, v in item_in.model_dump(exclude_unset=True, exclude={"tags"}).items():
         setattr(item, k, v)
 
-    # ── 2. tags (replace whole set if provided) ────────────────
+    # 2) handle tags (many-to-many)
     if item_in.tags is not None:
-        tag_objs = []
+        tag_objs: list[JewelryTag] = []
         for name in item_in.tags:
-            name = name.lower()
             tag = session.exec(
-                select(JewelryTag).where(JewelryTag.name == name)
+                select(JewelryTag).where(JewelryTag.name == name.lower())
             ).first()
             if not tag:
-                tag = JewelryTag(name=name)
+                tag = JewelryTag(name=name.lower())
                 session.add(tag)
             tag_objs.append(tag)
-        item.tags = tag_objs  # replace M2M collection
+        item.tags = tag_objs  # replace full set
 
-    # ── 3. commit once ─────────────────────────────────────────
-    session.add(item)
+    # 3) commit once at the end so tag links are persisted
     try:
+        session.add(item)
         session.commit()
     except IntegrityError:
         session.rollback()

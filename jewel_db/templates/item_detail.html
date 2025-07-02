@@ -64,7 +64,15 @@
   <!-- EDIT FORM -->
   <form id="item-detail-form" class="space-y-3 text-gray-700">
     <input type="hidden" name="id" value="{{ item.id }}"/>
-
+    <!-- Name -->
+    <div>
+      <label class="block font-medium">Name</label>
+      <input type="text"
+            name="name"
+            value="{{ item.name }}"
+            disabled
+            class="w-full border rounded p-2"/>
+    </div>
     <!-- Category -->
     <div>
       <label class="block font-medium">Category</label>
@@ -131,44 +139,48 @@
 {% endblock %}
 
 {% block scripts %}
+<!-- SortableJS (classic build) -->
 <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.0/Sortable.min.js"></script>
+
+<!-- Page logic -->
 <script type="module">
 import { attachTagInput } from "{{ url_for('static', path='js/tag_select.js') }}";
 
 document.addEventListener("DOMContentLoaded", () => {
 
   /* ---------- helpers ---------- */
-  const itemId   = +document.getElementById("item-root").dataset.itemId;
-  const $        = id => document.getElementById(id);
+  const itemId  = +document.getElementById("item-root").dataset.itemId;
+  const $       = (id) => document.getElementById(id);
 
-  const gallery  = $("gallery");
-  const form     = $("item-detail-form");
-  const editBtn  = $("edit-btn");
-  const saveBtn  = $("save-btn");
-  const cancelBtn= $("cancel-btn");
-  const delBtn   = $("item-delete-btn");
+  const gallery   = $("gallery");
+  const form      = $("item-detail-form");
+  const editBtn   = $("edit-btn");
+  const saveBtn   = $("save-btn");
+  const cancelBtn = $("cancel-btn");
+  const delBtn    = $("item-delete-btn");
 
-  const uploadIn = $("upload-input");
-  const urlIn    = $("url-input");
-  const uploadBt = $("upload-btn");
+  const uploadIn  = $("upload-input");
+  const urlIn     = $("url-input");
+  const uploadBt  = $("upload-btn");
 
-  const tagInput   = $("tags-input");
-  const tagHidden  = $("tags-hidden");
-  const pillbox    = $("tags-pillbox");
+  const tagInput  = $("tags-input");
+  const tagHidden = $("tags-hidden");
+  const pillbox   = $("tags-pillbox");
+  const headerH2  = document.querySelector("h2");
 
-  /* ---------- webcam helper ---------- */
+  const safeParse = (v) => { try { return JSON.parse(v || "[]"); } catch { return []; } };
+
+  /* ---------- webcam ---------- */
   if (typeof initWebcamCapture === "function") {
     initWebcamCapture("#detail-webcam-btn", "#upload-input");
   }
 
-  /* ---------- tag multiselect setup ---------- */
+  /* ---------- tag picker ---------- */
   attachTagInput(tagInput, tagHidden);
-
-  // pre-populate pills from hidden value
-  JSON.parse(tagHidden.value || "[]").forEach(addTagPill);
+  pillbox.innerHTML = "";
+  safeParse(tagHidden.value).forEach(addTagPill);
 
   function addTagPill(tag) {
-    // prevent dups
     if ([...pillbox.children].some(p => p.dataset.tag === tag)) return;
     const pill = document.createElement("span");
     pill.dataset.tag = tag;
@@ -178,149 +190,141 @@ document.addEventListener("DOMContentLoaded", () => {
     pillbox.appendChild(pill);
     syncHidden();
   }
-
   function syncHidden() {
     tagHidden.value = JSON.stringify([...pillbox.children].map(p => p.dataset.tag));
   }
-
-  // attachTagInput adds pills via custom event
-  tagInput.addEventListener("tag-added", e => addTagPill(e.detail));
+  tagInput.addEventListener("tag-added", (e) => addTagPill(e.detail));
 
   /* ---------- inline-edit toggle ---------- */
-  const scalarEls   = form.querySelectorAll("input[name], textarea[name], select[name]");
+  const scalarEls = form.querySelectorAll("input[name], textarea[name], select[name]");
+  const original  = Object.fromEntries([...scalarEls].map(el => [el.name, el.value]));
 
-  // remember original values
-  const original = Object.fromEntries(
-    Array.from(scalarEls).map(el => [el.name, el.value])
-  );
-
-  function setDisabled(state) {
-    scalarEls.forEach(el => el.disabled = state);
-    // toggle tag input / pills visibility
-    tagInput.style.display = state ? "none" : "";
-    pillbox.style.pointerEvents = state ? "none" : "auto";
-  }
+  const setDisabled = (state) => {
+    scalarEls.forEach(el => (el.disabled = state));
+    tagInput.style.display        = state ? "none" : "";
+    pillbox.style.pointerEvents   = state ? "none" : "auto";
+  };
 
   editBtn.onclick = () => {
     setDisabled(false);
-    editBtn.hidden = true;
-    saveBtn.hidden = cancelBtn.hidden = false;
+    editBtn.hidden  = true;
+    saveBtn.hidden  = false;
+    cancelBtn.hidden= false;
   };
 
   cancelBtn.onclick = () => {
-    // restore scalar fields
-    scalarEls.forEach(el => {
-      if (el.name in original) el.value = original[el.name];
-    });
-    // restore category select etc.
-    setDisabled(true);
-    editBtn.hidden = false;
-    saveBtn.hidden = cancelBtn.hidden = true;
-    // restore pills
+    scalarEls.forEach(el => { if (el.name in original) el.value = original[el.name]; });
     pillbox.innerHTML = "";
-    JSON.parse(tagHidden.value || "[]").forEach(addTagPill);
+    safeParse(tagHidden.value).forEach(addTagPill);
+    setDisabled(true);
+    editBtn.hidden  = false;
+    saveBtn.hidden  = true;
+    cancelBtn.hidden= true;
   };
 
+  /* ---------- SAVE (fixed) ---------- */
   saveBtn.onclick = async () => {
+    /* gather current values */
     const payload = {};
-    scalarEls.forEach(el => {
-      if (!el.disabled) payload[el.name] = el.value || null;
-    });
-    payload.tags = JSON.parse(tagHidden.value || "[]");
+    scalarEls.forEach(el => { if (!el.disabled) payload[el.name] = el.value || null; });
+    payload.tags = [...pillbox.children].map(p => p.dataset.tag);
 
-    const res = await fetch(`/api/items/${itemId}`, {
+    /* PATCH */
+    const ok = await fetch(`/api/items/${itemId}`, {
       method: "PATCH",
-      headers: { "Content-Type":"application/json" },
-      body: JSON.stringify(payload)
-    });
-    if (!res.ok) { alert("Update failed"); return; }
-    const updated = await res.json();
-    // update original cache
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    }).then(r => r.ok);
+    if (!ok) { alert("Update failed"); return; }
+
+    /* re-fetch fresh record */
+    const updated = await fetch(`/api/items/${itemId}`).then(r => r.json());
+
+    /* lock UI & cache */
     Object.assign(original, updated);
     setDisabled(true);
-    editBtn.hidden = false;
-    saveBtn.hidden = cancelBtn.hidden = true;
-    // refresh readonly pills
+    editBtn.hidden  = false;
+    saveBtn.hidden  = true;
+    cancelBtn.hidden= true;
+
+    /* update header & pills */
+    headerH2.textContent = updated.name;
     pillbox.innerHTML = "";
-    updated.tags.forEach(t => addTagPill(t.name));
+    (updated.tags || []).forEach(t => addTagPill(t.name));
   };
 
+  /* ---------- DELETE ---------- */
   delBtn.onclick = async () => {
     if (!confirm("Delete this item?")) return;
-    if ((await fetch(`/api/items/${itemId}`, {method:"DELETE"})).status === 204) location.href = "/items";
+    const ok = (await fetch(`/api/items/${itemId}`, { method: "DELETE" })).ok;
+    if (ok) location.href = "/items";
   };
 
-  /* ---------- gallery helpers ---------- */
+  /* ---------- gallery ---------- */
   let imgs = [];
   const refreshGallery = async () => {
-    const data = await fetch(`/api/items/${itemId}/images`).then(r=>r.json());
+    const data = await fetch(`/api/items/${itemId}/images`).then(r => r.json());
     imgs = data.map(i => i.url);
     gallery.innerHTML = data.map(i => `
       <li data-id="${i.id}" class="relative cursor-pointer border rounded overflow-hidden">
         <button data-image-id="${i.id}" class="image-delete-btn absolute top-2 right-2 bg-red-600 hover:bg-red-700 text-white px-1 py-0.5 rounded text-xs z-10">×</button>
         <img src="${i.url}" class="w-full h-48 object-cover" loading="lazy"/>
-        ${i.sort_order===1? `<span data-badge="thumb" class="absolute top-2 left-2 bg-yellow-400 text-white px-1 rounded text-sm z-10">★ Thumbnail</span>` : ''}
-      </li>`).join('');
+        ${i.sort_order === 1 ? `<span class="absolute top-2 left-2 bg-yellow-400 text-white px-1 rounded text-sm z-10">★ Thumbnail</span>` : ""}
+      </li>`).join("");
   };
-
   new Sortable(gallery, {
     animation: 150,
     onEnd: async () => {
       const order = [...gallery.children].map(li => li.dataset.id);
       await fetch(`/api/items/${itemId}/images/reorder`, {
-        method:"PATCH",
-        headers:{"Content-Type":"application/json"},
-        body:JSON.stringify({new_order:order})
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ new_order: order }),
       });
       refreshGallery();
-    }
+    },
   });
-
-  gallery.addEventListener("click", async e => {
+  gallery.addEventListener("click", async (e) => {
     if (e.target.matches(".image-delete-btn")) {
       if (!confirm("Delete this image?")) return;
       const imgId = e.target.dataset.imageId;
-      if ((await fetch(`/api/items/${itemId}/images/${imgId}`, {method:"DELETE"})).status === 204) {
-        e.target.closest("li").remove(); refreshGallery();
-      }
+      const ok = (await fetch(`/api/items/${itemId}/images/${imgId}`, { method: "DELETE" })).ok;
+      if (ok) { e.target.closest("li").remove(); refreshGallery(); }
       return;
     }
     const imgEl = e.target.closest("li")?.querySelector("img");
-    if (imgEl) {
-      await refreshGallery();
-      let idx = imgs.indexOf(imgEl.src); if (idx < 0) idx = 0;
-      showAt(idx);
-      lightbox.classList.remove("hidden");
-    }
+    if (imgEl) { await refreshGallery(); showAt(imgs.indexOf(imgEl.src)); lightbox.classList.remove("hidden"); }
   });
 
-  /* ---------- upload images ---------- */
+  /* upload images */
   uploadBt.onclick = async () => {
     const files = [...uploadIn.files];
     const url   = urlIn.value.trim();
     if (!files.length && !url) return alert("Choose files or enter a URL");
-    uploadBt.disabled = true;
+
     const fd = new FormData();
     files.forEach(f => fd.append("files", f));
     if (url) fd.append("url", url);
-    const ok = (await fetch(`/api/items/${itemId}/images`, {method:"POST", body: fd})).ok;
-    if (!ok) alert("Upload failed"); else { uploadIn.value = ""; urlIn.value = ""; refreshGallery(); }
+    uploadBt.disabled = true;
+    const ok = (await fetch(`/api/items/${itemId}/images`, { method: "POST", body: fd })).ok;
     uploadBt.disabled = false;
+    if (ok) { uploadIn.value = ""; urlIn.value = ""; refreshGallery(); }
   };
 
-  /* ---------- lightbox nav & zoom ---------- */
-  const lightbox = $("lightbox"), lbImg=$("lb-img"), lbPrev=$("lb-prev"), lbNext=$("lb-next"), lbClose=$("lb-close");
-  const ziBtn=$("lb-zoom-in"), zoBtn=$("lb-zoom-out");
-  const zoomLevels=[1,1.5,2]; let zoomIdx=0;
-  const resetZoom=()=>{ zoomIdx=0; lbImg.style.transform="scale(1)"; };
-  const showAt=i=>{ if(!imgs.length)return; i=(i+imgs.length)%imgs.length; lbImg.src=imgs[i]; lightbox.dataset.idx=i; resetZoom(); };
+  /* lightbox + zoom */
+  const lightbox = $("lightbox"), lbImg = $("lb-img");
+  const lbPrev = $("lb-prev"), lbNext = $("lb-next"), lbClose = $("lb-close");
+  const ziBtn = $("lb-zoom-in"), zoBtn = $("lb-zoom-out");
+  const zoomLevels = [1, 1.5, 2]; let zoomIdx = 0;
+  const resetZoom = () => { zoomIdx = 0; lbImg.style.transform = "scale(1)"; };
+  const showAt    = (i) => { i = (i + imgs.length) % imgs.length; lbImg.src = imgs[i]; lightbox.dataset.idx = i; resetZoom(); };
   lbClose.onclick = () => lightbox.classList.add("hidden");
   lbPrev.onclick  = () => showAt(+lightbox.dataset.idx - 1);
   lbNext.onclick  = () => showAt(+lightbox.dataset.idx + 1);
-  ziBtn.onclick   = () => { if(zoomIdx<zoomLevels.length-1)zoomIdx++; lbImg.style.transform=`scale(${zoomLevels[zoomIdx]})`; };
-  zoBtn.onclick   = () => { if(zoomIdx>0)zoomIdx--; lbImg.style.transform=`scale(${zoomLevels[zoomIdx]})`; };
+  ziBtn.onclick   = () => { if (zoomIdx < zoomLevels.length - 1) zoomIdx++; lbImg.style.transform = `scale(${zoomLevels[zoomIdx]})`; };
+  zoBtn.onclick   = () => { if (zoomIdx > 0) zoomIdx--; lbImg.style.transform = `scale(${zoomLevels[zoomIdx]})`; };
 
-  /* ---------- init ---------- */
+  /* init */
   refreshGallery();
   setDisabled(true);
 });
