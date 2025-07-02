@@ -2,27 +2,29 @@
 {% block title %}{{ item.name }} – Jewelry Inventory{% endblock %}
 
 {% block content %}
+
   <!-- HEADER -->
   <div class="mb-6 flex items-center justify-between">
     <h2 class="text-2xl font-semibold">{{ item.name }}</h2>
     <div class="space-x-2">
-      <button id="edit-btn" class="bg-yellow-500 hover:bg-yellow-600 text-white px-3 py-1 rounded text-sm">Edit</button>
-      <button id="save-btn" class="bg-green-600 hover:bg-green-700 text-white px-3 py-1 rounded text-sm" hidden>Save</button>
-      <button id="cancel-btn" class="bg-gray-400 hover:bg-gray-500 text-white px-3 py-1 rounded text-sm" hidden>Cancel</button>
+      <button id="edit-btn"   class="bg-yellow-500 hover:bg-yellow-600 text-white px-3 py-1 rounded text-sm">Edit</button>
+      <button id="save-btn"   class="bg-green-600  hover:bg-green-700  text-white px-3 py-1 rounded text-sm" hidden>Save</button>
+      <button id="cancel-btn" class="bg-gray-400  hover:bg-gray-500  text-white px-3 py-1 rounded text-sm" hidden>Cancel</button>
       <button id="item-delete-btn" data-id="{{ item.id }}" class="bg-red-600 hover:bg-red-700 text-white px-3 py-1 rounded text-sm">Delete</button>
       <a href="/items" class="text-gray-600 underline text-sm">Back to list</a>
     </div>
   </div>
 
+  <!-- hidden data root for JS -->
+  <div id="item-root" data-item-id="{{ item.id }}"></div>
+
   <!-- GALLERY -->
   <ul id="gallery" class="grid grid-cols-3 gap-4 mb-8">
     {% for img in images %}
     <li data-id="{{ img.id }}" class="relative cursor-pointer border rounded overflow-hidden">
-      <button
-        data-image-id="{{ img.id }}"
-        class="image-delete-btn absolute top-2 right-2 bg-red-600 hover:bg-red-700 text-white px-1 py-0.5 rounded text-xs z-10"
-        title="Delete this image"
-      >×</button>
+      <button data-image-id="{{ img.id }}"
+              class="image-delete-btn absolute top-2 right-2 bg-red-600 hover:bg-red-700 text-white px-1 py-0.5 rounded text-xs z-10"
+              title="Delete this image">×</button>
       <img src="{{ img.url }}" class="w-full h-48 object-cover" loading="lazy"/>
       {% if img.sort_order == 1 %}
       <span class="absolute top-2 left-2 bg-yellow-400 text-white px-1 rounded text-sm z-10">★ Thumbnail</span>
@@ -31,22 +33,24 @@
     {% endfor %}
   </ul>
 
-  <!-- LIGHTBOX OVERLAY -->
+  <!-- LIGHTBOX -->
   <div id="lightbox" class="hidden fixed inset-0 bg-black bg-opacity-80 flex items-center justify-center z-50">
     <button id="lb-close" class="absolute top-4 right-4 text-white text-3xl">&times;</button>
-    <button id="lb-prev"  class="absolute left-4  text-white text-4xl">&#10094;</button>
+    <button id="lb-prev"  class="absolute left-4 text-white text-4xl select-none">&#10094;</button>
+
     <div class="relative">
       <img id="lb-img" src="" class="max-h-[80vh] max-w-[80vw] transition-transform"/>
+      <!-- ZOOM TOOLBAR -->
+      <div class="absolute bottom-2 left-1/2 -translate-x-1/2 bg-black bg-opacity-50 rounded p-2 flex space-x-4">
+        <button id="lb-zoom-in"  class="text-white text-xl select-none">＋🔍</button>
+        <button id="lb-zoom-out" class="text-white text-xl select-none">－🔍</button>
+      </div>
     </div>
-    <button id="lb-next"  class="absolute right-4 text-white text-4xl">&#10095;</button>
-    <!-- ZOOM TOOLBAR -->
-    <div id="zoom-toolbar" class="absolute bottom-4 left-1/2 transform -translate-x-1/2 flex space-x-4 bg-black bg-opacity-50 p-2 rounded">
-      <button id="lb-zoom-in"  class="text-white text-xl select-none">＋🔍</button>
-      <button id="lb-zoom-out" class="text-white text-xl select-none">－🔍</button>
-    </div>
+
+    <button id="lb-next"  class="absolute right-4 text-white text-4xl select-none">&#10095;</button>
   </div>
 
-  <!-- UPLOAD IMAGES -->
+  <!-- IMAGE UPLOAD -->
   <div class="mb-8">
     <label class="block font-medium mb-2">Upload Images</label>
     <div class="flex items-center space-x-2">
@@ -58,28 +62,18 @@
   <!-- EDIT FORM -->
   <form id="item-detail-form" class="space-y-2 text-gray-700">
     <input type="hidden" name="id" value="{{ item.id }}"/>
-    <div>
-      <label class="block font-medium">Material</label>
-      <input type="text" name="material" value="{{ item.material or '' }}" disabled class="w-full border rounded p-2"/>
-    </div>
-    <div>
-      <label class="block font-medium">Gemstone</label>
-      <input type="text" name="gemstone" value="{{ item.gemstone or '' }}" disabled class="w-full border rounded p-2"/>
-    </div>
+    <div><label class="block font-medium">Material</label>
+         <input type="text" name="material" value="{{ item.material or '' }}" disabled class="w-full border rounded p-2"/></div>
+    <div><label class="block font-medium">Gemstone</label>
+         <input type="text" name="gemstone" value="{{ item.gemstone or '' }}" disabled class="w-full border rounded p-2"/></div>
     <div class="grid grid-cols-2 gap-4">
-      <div>
-        <label class="block font-medium">Weight (g)</label>
-        <input type="number" step="0.01" name="weight" value="{{ '%.2f'|format(item.weight) }}" disabled class="w-full border rounded p-2"/>
-      </div>
-      <div>
-        <label class="block font-medium">Price</label>
-        <input type="number" step="0.01" name="price" value="{{ '%.2f'|format(item.price) }}" disabled class="w-full border rounded p-2"/>
-      </div>
+      <div><label class="block font-medium">Weight (g)</label>
+           <input type="number" step="0.01" name="weight" value="{{ '%.2f'|format(item.weight) }}" disabled class="w-full border rounded p-2"/></div>
+      <div><label class="block font-medium">Price</label>
+           <input type="number" step="0.01" name="price"  value="{{ '%.2f'|format(item.price)  }}" disabled class="w-full border rounded p-2"/></div>
     </div>
-    <div>
-      <label class="block font-medium">Description</label>
-      <textarea name="description" rows="3" disabled class="w-full border rounded p-2">{{ item.description or '' }}</textarea>
-    </div>
+    <div><label class="block font-medium">Description</label>
+         <textarea name="description" rows="3" disabled class="w-full border rounded p-2">{{ item.description or '' }}</textarea></div>
   </form>
 {% endblock %}
 
@@ -87,134 +81,133 @@
 <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.0/Sortable.min.js"></script>
 <script>
 document.addEventListener("DOMContentLoaded", () => {
-  const itemId    = {{ item.id }};
-  const gallery   = document.getElementById("gallery");
-  const form      = document.getElementById("item-detail-form");
-  const editBtn   = document.getElementById("edit-btn");
-  const saveBtn   = document.getElementById("save-btn");
-  const cancelBtn = document.getElementById("cancel-btn");
-  const deleteBtn = document.getElementById("item-delete-btn");
-  const uploadIn  = document.getElementById("upload-input");
-  const uploadBtn = document.getElementById("upload-btn");
-  const lightbox  = document.getElementById("lightbox");
-  const lbImg     = document.getElementById("lb-img");
-  const lbClose   = document.getElementById("lb-close");
-  const lbPrev    = document.getElementById("lb-prev");
-  const lbNext    = document.getElementById("lb-next");
-  const ziBtn     = document.getElementById("lb-zoom-in");
-  const zoBtn     = document.getElementById("lb-zoom-out");
+  /* ---------- helpers ---------- */
+  const itemId   = parseInt(document.getElementById("item-root").dataset.itemId, 10);
+  const $        = id => document.getElementById(id);
 
-  // Inline-edit
+  const gallery  = $("gallery");
+  const form     = $("item-detail-form");
+  const editBtn  = $("edit-btn");
+  const saveBtn  = $("save-btn");
+  const cancelBtn= $("cancel-btn");
+  const delBtn   = $("item-delete-btn");
+  const uploadIn = $("upload-input");
+  const uploadBt = $("upload-btn");
+
+  const lightbox = $("lightbox");
+  const lbImg    = $("lb-img");
+  const lbPrev   = $("lb-prev");
+  const lbNext   = $("lb-next");
+  const lbClose  = $("lb-close");
+  const ziBtn    = $("lb-zoom-in");
+  const zoBtn    = $("lb-zoom-out");
+
+  /* ---------- inline-edit ---------- */
   const original = {};
-  form.querySelectorAll("input[name], textarea[name]").forEach(el => original[el.name]=el.value);
-  function setDisabled(val){ form.querySelectorAll("input[name], textarea[name]").forEach(el=>el.disabled=val); }
-  editBtn.onclick = ()=>{ setDisabled(false); editBtn.hidden=true; saveBtn.hidden=false; cancelBtn.hidden=false; };
-  cancelBtn.onclick = ()=>{
-    Object.keys(original).forEach(k=> form.querySelector(`[name="${k}"]`).value=original[k]);
-    setDisabled(true); editBtn.hidden=false; saveBtn.hidden=true; cancelBtn.hidden=true;
+  form.querySelectorAll("input[name], textarea[name]").forEach(el => original[el.name] = el.value);
+  const setDisabled = d => form.querySelectorAll("input[name], textarea[name]").forEach(el => (el.disabled = d));
+
+  editBtn.onclick   = () => { setDisabled(false); editBtn.hidden = true; saveBtn.hidden = cancelBtn.hidden = false; };
+  cancelBtn.onclick = () => {
+    Object.keys(original).forEach(k => { form.querySelector(`[name="${k}"]`).value = original[k]; });
+    setDisabled(true); editBtn.hidden = false; saveBtn.hidden = cancelBtn.hidden = true;
   };
-  saveBtn.onclick = async ()=>{
-    const data={};
-    form.querySelectorAll("input[name], textarea[name]").forEach(el=>data[el.name]=el.value||null);
-    const res = await fetch(`/api/items/${itemId}`,{method:"PATCH",headers:{"Content-Type":"application/json"},body:JSON.stringify(data)});
-    if(!res.ok){ const err=await res.json().catch(()=>({})); return alert("Update failed: "+(err.detail||res.status)); }
-    const upd=await res.json();
-    Object.keys(data).forEach(k=>{ original[k]=upd[k]||""; form.querySelector(`[name="${k}"]`).value=upd[k]||""; });
-    setDisabled(true); editBtn.hidden=false; saveBtn.hidden=true; cancelBtn.hidden=true;
+  saveBtn.onclick   = async () => {
+    const payload = {};
+    form.querySelectorAll("input[name], textarea[name]").forEach(el => { payload[el.name] = el.value || null; });
+    const res = await fetch(`/api/items/${itemId}`, {method: "PATCH", headers: {"Content-Type":"application/json"}, body: JSON.stringify(payload)});
+    if (!res.ok) { alert("Update failed"); return; }
+    const updated = await res.json();
+    Object.assign(original, updated);
+    setDisabled(true); editBtn.hidden = false; saveBtn.hidden = cancelBtn.hidden = true;
   };
 
-  // Delete & redirect
-  deleteBtn.onclick = async ()=> {
-    if(!confirm("Delete this item?")) return;
-    const res=await fetch(`/api/items/${itemId}`,{method:"DELETE"});
-    if(res.status===204) location.href="/items";
-    else{ const err=await res.json().catch(()=>({})); alert("Delete failed: "+(err.detail||res.status)); }
+  delBtn.onclick = async () => {
+    if (!confirm("Delete this item?")) return;
+    if ((await fetch(`/api/items/${itemId}`, {method:"DELETE"})).status === 204) location.href = "/items";
   };
 
-  // Refresh gallery data
+  /* ---------- gallery helpers ---------- */
   let imgs = [];
-  function refreshGallery(){
-    fetch(`/api/items/${itemId}/images`).then(r=>r.json()).then(data=>{
-      imgs = data.map(i=>i.url);
-      gallery.querySelectorAll("li").forEach(li=>{
-        li.querySelectorAll("span").forEach(s=>s.remove());
-        const id=parseInt(li.dataset.id,10);
-        const imgObj = data.find(i=>i.id===id);
-        if(imgObj?.sort_order===1){
-          const b=document.createElement("span");
-          b.textContent="★ Thumbnail";
-          b.className="absolute top-2 left-2 bg-yellow-400 text-white px-1 rounded text-sm z-10";
-          li.appendChild(b);
+  const refreshGallery = async () => {
+    const data = await fetch(`/api/items/${itemId}/images`).then(r=>r.json());
+    imgs = data.map(i => i.url);
+    // update thumbnail badges
+    gallery.querySelectorAll("span[data-badge]").forEach(b => b.remove());
+    data.forEach(i => {
+      if (i.sort_order === 1) {
+        const li = gallery.querySelector(`li[data-id="${i.id}"]`);
+        if (li) {
+          const badge = document.createElement("span");
+          badge.dataset.badge = "thumb";
+          badge.className = "absolute top-2 left-2 bg-yellow-400 text-white px-1 rounded text-sm z-10";
+          badge.textContent = "★ Thumbnail";
+          li.appendChild(badge);
         }
-      });
+      }
     });
-  }
+  };
 
-  // Drag-to-reorder images
-  new Sortable(gallery,{ animation:150, onEnd:async ()=>{
-    const order=Array.from(gallery.children).map(li=>li.dataset.id);
-    await fetch(`/api/items/${itemId}/images/reorder`,{
-      method:"PATCH",headers:{"Content-Type":"application/json"},body:JSON.stringify({new_order:order})
-    });
-    refreshGallery();
-  }});
+  /* -------- gallery drag-sort -------- */
+  new Sortable(gallery, {
+    animation: 150,
+    onEnd: async () => {
+      const order = Array.from(gallery.children).map(li => li.dataset.id);
+      await fetch(`/api/items/${itemId}/images/reorder`, {method:"PATCH",headers:{"Content-Type":"application/json"},body:JSON.stringify({new_order:order})});
+      refreshGallery();
+    }
+  });
 
-  // Gallery click: delete or open lightbox
-  gallery.addEventListener("click", async e=>{
-    if(e.target.matches(".image-delete-btn")){
-      const imgId=e.target.dataset.imageId;
-      if(!confirm("Delete this image?")) return;
-      const r=await fetch(`/api/items/${itemId}/images/${imgId}`,{method:"DELETE"});
-      if(r.status===204){ e.target.closest("li").remove(); refreshGallery(); }
-      else alert("Failed to delete image");
+  /* -------- gallery click -------- */
+  gallery.addEventListener("click", async e => {
+    if (e.target.matches(".image-delete-btn")) {
+      if (!confirm("Delete this image?")) return;
+      const imgId = e.target.dataset.imageId;
+      if ((await fetch(`/api/items/${itemId}/images/${imgId}`, {method:"DELETE"})).status === 204) {
+        e.target.closest("li").remove();
+        refreshGallery();
+      }
       return;
     }
-    const imgEl=e.target.closest("li")?.querySelector("img");
-    if(imgEl){
-      refreshGallery();
-      let idx=imgs.indexOf(imgEl.src);
-      if(idx<0) idx=0;
-      lbImg.src=imgs[idx];
-      lightbox.dataset.index=idx;
-      zoomIndex=0; lbImg.style.transform="scale(1)";
+    const img = e.target.closest("li")?.querySelector("img");
+    if (img) {
+      await refreshGallery();
+      let idx = imgs.indexOf(img.src); if (idx < 0) idx = 0;
+      lbImg.src = imgs[idx]; lightbox.dataset.idx = idx;
+      zoomIdx = 0; lbImg.style.transform = "scale(1)";
       lightbox.classList.remove("hidden");
     }
   });
 
-  // Upload images
-  uploadBtn.onclick = async ()=>{
-    const files=Array.from(uploadIn.files);
-    if(!files.length) return alert("Select images first");
-    uploadBtn.disabled=true;
-    const fd=new FormData(); files.forEach(f=>fd.append("files",f));
-    const r=await fetch(`/api/items/${itemId}/images`,{method:"POST",body:fd});
-    if(!r.ok){ const err=await r.json().catch(()=>({})); alert("Upload failed: "+(err.detail||r.status)); }
-    else{ uploadIn.value=""; refreshGallery(); }
-    uploadBtn.disabled=false;
+  /* -------- upload images -------- */
+  uploadBt.onclick = async () => {
+    const files = Array.from(uploadIn.files); if (!files.length) return alert("Choose files first");
+    uploadBt.disabled = true;
+    const fd = new FormData(); files.forEach(f => fd.append("files", f));
+    const ok = (await fetch(`/api/items/${itemId}/images`, {method:"POST", body: fd})).ok;
+    if (!ok) alert("Upload failed"); else { uploadIn.value = ""; refreshGallery(); }
+    uploadBt.disabled = false;
   };
 
-  // Lightbox navigation & zoom
-  const zoomLevels=[1,1.5,2], maxZI=zoomLevels.length-1;
-  let zoomIndex=0;
-  lbClose.onclick = ()=> lightbox.classList.add("hidden");
-  lbPrev.onclick  = ()=>{
-    let i=parseInt(lightbox.dataset.index,10);
-    i=(i-1+imgs.length)%imgs.length;
-    lbImg.src=imgs[i]; lightbox.dataset.index=i;
-    zoomIndex=0; lbImg.style.transform="scale(1)";
-  };
-  lbNext.onclick  = ()=>{
-    let i=parseInt(lightbox.dataset.index,10);
-    i=(i+1)%imgs.length;
-    lbImg.src=imgs[i]; lightbox.dataset.index=i;
-    zoomIndex=0; lbImg.style.transform="scale(1)";
-  };
-  ziBtn.onclick   = ()=>{ if(zoomIndex<maxZI) zoomIndex++; lbImg.style.transform=`scale(${zoomLevels[zoomIndex]})`; };
-  zoBtn.onclick   = ()=>{ if(zoomIndex>0) zoomIndex--; lbImg.style.transform=`scale(${zoomLevels[zoomIndex]})`; };
+  /* -------- lightbox nav & zoom -------- */
+  const zoomLevels = [1,1.5,2]; let zoomIdx = 0;
+  const resetZoom  = () => { zoomIdx = 0; lbImg.style.transform = "scale(1)"; };
 
-  // initialize
-  setDisabled(true);
+  const showAt = i => {
+    if (!imgs.length) return;
+    i = (i + imgs.length) % imgs.length;
+    lbImg.src = imgs[i]; lightbox.dataset.idx = i; resetZoom();
+  };
+
+  lbClose.onclick = () => lightbox.classList.add("hidden");
+  lbPrev.onclick  = () => showAt(parseInt(lightbox.dataset.idx,10) - 1);
+  lbNext.onclick  = () => showAt(parseInt(lightbox.dataset.idx,10) + 1);
+  ziBtn.onclick   = () => { if (zoomIdx < zoomLevels.length - 1) zoomIdx++; lbImg.style.transform = `scale(${zoomLevels[zoomIdx]})`; };
+  zoBtn.onclick   = () => { if (zoomIdx > 0) zoomIdx--;                   lbImg.style.transform = `scale(${zoomLevels[zoomIdx]})`; };
+
+  /* -------- initialise -------- */
   refreshGallery();
+  setDisabled(true);
 });
 </script>
 {% endblock %}
