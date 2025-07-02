@@ -249,6 +249,23 @@ def update_item(
     return item
 
 
+@router.delete("/batch", response_model=list[int], status_code=200)
+async def batch_delete_items(
+    ids: list[int] = Body(..., embed=True),
+    session: Session = Depends(get_session),
+):
+    if not ids:
+        raise HTTPException(status_code=400, detail="`ids` list is empty")
+    deleted: list[int] = []
+    for item_id in ids:
+        item = session.get(JewelryItem, item_id)
+        if item:
+            session.delete(item)
+            deleted.append(item_id)
+    session.commit()
+    return deleted
+
+
 @router.delete(
     "/{item_id}",
     status_code=204,

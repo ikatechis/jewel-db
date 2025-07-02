@@ -4,20 +4,22 @@
 {% block title %}All Jewelry Items{% endblock %}
 
 {% block content %}
-  <!-- Filter form -->
+  <!-- Filter + Batch‐Delete row -->
   <form
     method="get"
     action="{{ url_for('list_items_page') }}"
     class="mb-6 flex flex-wrap items-center space-x-4"
   >
+    <!-- search -->
     <input
       type="text"
-      name="q"
+      name="search"
       placeholder="Search"
-      value="{{ q or '' }}"
+      value="{{ search or '' }}"
       class="border border-gray-300 rounded px-3 py-2 flex-1"
     />
 
+    <!-- material -->
     <select name="material" class="border border-gray-300 rounded px-3 py-2">
       <option value="">All Materials</option>
       {% for m in materials %}
@@ -27,12 +29,10 @@
       {% endfor %}
     </select>
 
+    <!-- gemstone -->
     <select name="gemstone" class="border border-gray-300 rounded px-3 py-2">
       <option value="">All Gemstones</option>
-      <!-- explicit “None” -->
-      <option value="None" {% if gemstone=='None' %}selected{% endif %}>
-        None
-      </option>
+      <option value="None" {% if gemstone=='None' %}selected{% endif %}>None</option>
       {% for g in gemstones %}
         {% if g %}
           <option value="{{ g }}" {% if g == gemstone %}selected{% endif %}>
@@ -42,31 +42,20 @@
       {% endfor %}
     </select>
 
+    <!-- Filter button -->
     <button type="submit" class="bg-blue-600 text-white rounded px-4 py-2">
       Filter
     </button>
+
+    <!-- Batch‐delete, hidden until a checkbox is checked -->
+    <button
+      id="delete-selected"
+      type="button"
+      class="bg-red-600 text-white rounded px-4 py-2 ml-2 hidden"
+    >
+      Delete Selected
+    </button>
   </form>
-
-
-  <!-- Stats panel -->
-  <div class="grid grid-cols-4 gap-4 mb-6 text-center">
-    <div>
-      <h4 class="font-medium">Total Items</h4>
-      <p>{{ total_count }}</p>
-    </div>
-    <div>
-      <h4 class="font-medium">Avg Price</h4>
-      <p>{{ '%.2f'|format(avg_price) }} €</p>
-    </div>
-    <div>
-      <h4 class="font-medium">Total Weight</h4>
-      <p>{{ '%.2f'|format(total_weight) }} g</p>
-    </div>
-    <div>
-      <h4 class="font-medium">No Image</h4>
-      <p>{{ no_count }}</p>
-    </div>
-  </div>
 
   <!-- View toggles -->
   <div class="mb-4">
@@ -74,10 +63,17 @@
     <button id="listView" class="px-3 py-1 bg-gray-200 rounded">List View</button>
   </div>
 
-  <!-- Grid display -->
+  <!-- GRID VIEW -->
   <div id="grid" class="grid grid-cols-3 gap-6">
     {% for item in items %}
       <div class="bg-white shadow rounded p-4">
+        <!-- checkbox -->
+        <input
+          type="checkbox"
+          class="select-item mb-2"
+          value="{{ item.id }}"
+        />
+
         {% if thumbs[item.id] %}
           <img
             src="{{ thumbs[item.id] }}"
@@ -85,48 +81,65 @@
             class="h-32 w-full object-cover mb-2 rounded"
           />
         {% else %}
-          <div class="h-32 w-full bg-gray-100 mb-2 rounded flex items-center justify-center">
+          <div
+            class="h-32 w-full bg-gray-100 mb-2 rounded flex items-center justify-center"
+          >
             No Image
           </div>
         {% endif %}
+
         <h5 class="font-semibold">{{ item.name }}</h5>
         <p class="text-sm text-gray-600">{{ item.material or '—' }}</p>
         <p class="text-sm">{{ '%.2f'|format(item.price) }} €</p>
-        <a
-          href="{{ url_for('item_detail', item_id=item.id) }}"
-          class="text-blue-600 hover:underline"
-        >
-          View
-        </a>
+
+        <div class="mt-2 space-x-4">
+          <a
+            href="{{ url_for('item_detail', item_id=item.id) }}"
+            class="text-blue-600 hover:underline"
+          >
+            View
+          </a>
+          <button
+            data-id="{{ item.id }}"
+            class="delete-item text-red-600 hover:underline"
+            type="button"
+          >
+            Delete
+          </button>
+        </div>
       </div>
     {% endfor %}
   </div>
 
-  <!-- Table display -->
+  <!-- TABLE VIEW -->
   <table
     id="list"
     class="min-w-full mt-6 hidden bg-white shadow rounded overflow-hidden"
   >
     <thead class="bg-gray-100">
       <tr>
+        <th class="px-4 py-2">
+          <input id="select-all" type="checkbox" />
+        </th>
         <th class="px-4 py-2 text-left">Name</th>
         <th class="px-4 py-2 text-left">Image</th>
         <th class="px-4 py-2 text-left">Material</th>
         <th class="px-4 py-2 text-left">Gemstone</th>
-        <th class="px-4 py-2 text-left">
-          Weight
-          {% if sort_by=='weight' %}{{ sort_dir=='asc' and '↑' or '↓' }}{% endif %}
-        </th>
-        <th class="px-4 py-2 text-left">
-          Price
-          {% if sort_by=='price' %}{{ sort_dir=='asc' and '↑' or '↓' }}{% endif %}
-        </th>
+        <th class="px-4 py-2 text-left">Weight</th>
+        <th class="px-4 py-2 text-left">Price</th>
         <th class="px-4 py-2 text-left">Actions</th>
       </tr>
     </thead>
     <tbody>
       {% for item in items %}
         <tr class="border-b">
+          <td class="px-4 py-2">
+            <input
+              type="checkbox"
+              class="select-item"
+              value="{{ item.id }}"
+            />
+          </td>
           <td class="px-4 py-2">{{ item.name }}</td>
           <td class="px-4 py-2">
             {% if thumbs[item.id] %}
@@ -140,33 +153,34 @@
             {% endif %}
           </td>
           <td class="px-4 py-2">{{ item.material or '—' }}</td>
-          <td class="px-4 py-2">
-            {% if item.gemstone %}
-              {{ item.gemstone }}
-            {% else %}
-              —
-            {% endif %}
-          </td>
+          <td class="px-4 py-2">{{ item.gemstone or '—' }}</td>
           <td class="px-4 py-2">{{ '%.2f'|format(item.weight) }}</td>
           <td class="px-4 py-2">{{ '%.2f'|format(item.price) }} €</td>
-          <td class="px-4 py-2">
+          <td class="px-4 py-2 space-x-4">
             <a
               href="{{ url_for('item_detail', item_id=item.id) }}"
               class="text-blue-600 hover:underline"
             >
               View
             </a>
+            <button
+              data-id="{{ item.id }}"
+              class="delete-item text-red-600 hover:underline"
+              type="button"
+            >
+              Delete
+            </button>
           </td>
         </tr>
       {% endfor %}
     </tbody>
   </table>
 
-  <!-- Pagination -->
+  <!-- Pagination (unchanged) -->
   <div class="mt-6 flex justify-center items-center space-x-4">
     {% if page > 1 %}
       <a
-        href="{{ url_for('list_items_page', page=page-1, q=q, material=material, gemstone=gemstone) }}"
+        href="{{ url_for('list_items_page', page=page-1, search=search, material=material, gemstone=gemstone) }}"
         class="px-3 py-1 bg-gray-200 rounded"
       >
         Prev
@@ -175,7 +189,7 @@
     <span>Page {{ page }} of {{ total_pages }}</span>
     {% if page < total_pages %}
       <a
-        href="{{ url_for('list_items_page', page=page+1, q=q, material=material, gemstone=gemstone) }}"
+        href="{{ url_for('list_items_page', page=page+1, search=search, material=material, gemstone=gemstone) }}"
         class="px-3 py-1 bg-gray-200 rounded"
       >
         Next
@@ -186,18 +200,71 @@
 
 {% block scripts %}
 <script>
-  const gridView = document.getElementById('gridView');
-  const listView = document.getElementById('listView');
-  const grid = document.getElementById('grid');
-  const list = document.getElementById('list');
+document.addEventListener("DOMContentLoaded", () => {
+  // ―― DOM refs ――
+  const deleteSelectedBtn = document.getElementById("delete-selected");
+  const selectAllBtn      = document.getElementById("select-all");
+  const getItemChecks     = () => Array.from(document.querySelectorAll(".select-item"));
 
-  gridView.addEventListener('click', () => {
-    grid.classList.remove('hidden');
-    list.classList.add('hidden');
+  // ―― show/hide batch button based on any checked ――
+  function updateBatchBtn() {
+    const anyChecked = getItemChecks().some(cb => cb.checked);
+    deleteSelectedBtn.classList.toggle("hidden", !anyChecked);
+  }
+
+  // ―― hook each checkbox ――
+  getItemChecks().forEach(cb => cb.addEventListener("change", updateBatchBtn));
+
+  // ―― hook select-all if present ――
+  if (selectAllBtn) {
+    selectAllBtn.addEventListener("change", () => {
+      const checked = selectAllBtn.checked;
+      getItemChecks().forEach(cb => cb.checked = checked);
+      updateBatchBtn();
+    });
+  }
+
+  // ―― initial call to set correct visibility ――
+  updateBatchBtn();
+
+  // ―― existing batch-delete logic ――
+  deleteSelectedBtn.addEventListener("click", async () => {
+    const ids = getItemChecks().filter(cb => cb.checked).map(cb => Number(cb.value));
+    if (!ids.length) return alert("No items selected");
+    if (!confirm("Delete selected items?")) return;
+    const res = await fetch("/api/items/batch", {
+      method:  "DELETE",
+      headers: { "Content-Type": "application/json" },
+body: JSON.stringify({ ids }),
+    });
+    if (res.ok) return window.location.reload();
+    alert("Batch delete failed");
   });
-  listView.addEventListener('click', () => {
-    list.classList.remove('hidden');
-    grid.classList.add('hidden');
+
+  // ―― existing single-delete logic ――
+  document.querySelectorAll(".delete-item").forEach(btn => {
+    btn.addEventListener("click", async () => {
+      const id = btn.dataset.id;
+      if (!confirm("Delete this item?")) return;
+      const r = await fetch(`/api/items/${id}`, { method: "DELETE" });
+      if (r.status === 204) window.location.reload();
+      else                    alert("Delete failed");
+    });
   });
+
+  // ―― your grid/list toggle (unchanged) ――
+  const gridView = document.getElementById("gridView");
+  const listView = document.getElementById("listView");
+  const grid     = document.getElementById("grid");
+  const list     = document.getElementById("list");
+  gridView.addEventListener("click", () => {
+    grid.classList.remove("hidden");
+    list.classList.add("hidden");
+  });
+  listView.addEventListener("click", () => {
+    list.classList.remove("hidden");
+    grid.classList.add("hidden");
+  });
+});
 </script>
 {% endblock %}
