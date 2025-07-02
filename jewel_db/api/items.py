@@ -41,6 +41,12 @@ async def upload_item_images(
     # If no files were uploaded, do nothing and return empty list
     if not files:
         return []
+    # Strip out “ghost” file parts some browsers send when no image is chosen
+    files = [
+        f for f in files if f.filename and f.content_type != "application/octet-stream"
+    ]
+    if not files:  # truly nothing to process
+        return []
 
     item = session.get(JewelryItem, item_id)
     if not item:

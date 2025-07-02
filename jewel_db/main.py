@@ -71,7 +71,8 @@ def list_items_page(
         (sum(i.price or 0 for i in all_items) / total_count) if total_count else 0
     )
     total_weight = sum(i.weight or 0 for i in all_items)
-    total_price = sum(i.price or 0 for i in all_items)  # ← new line
+    total_price = sum(i.price or 0 for i in all_items)
+    no_image_count = sum(1 for i in all_items if not i.images)
 
     # 5. Distinct filters
     materials = sorted({i.material for i in all_items if i.material})
@@ -93,7 +94,8 @@ def list_items_page(
             "total_count": total_count,
             "avg_price": avg_price,
             "total_weight": total_weight,
-            "total_price": total_price,  # ← make sure this is here
+            "total_price": total_price,
+            "no_image_count": no_image_count,
         },
     )
 

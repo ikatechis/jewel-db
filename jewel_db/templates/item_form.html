@@ -78,6 +78,7 @@
       name="files"
       multiple
       accept="image/*"
+      onchange="if (!this.files.length) return;"
       class="w-full"
     >
     <div class="error-msg text-red-600 text-sm mt-1"></div>

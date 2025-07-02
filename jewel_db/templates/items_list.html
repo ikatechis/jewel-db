@@ -22,6 +22,14 @@
       <div class="text-sm uppercase text-gray-500">Total Value</div>
       <div class="text-2xl font-semibold">{{ '%.2f'|format(total_price) }} €</div>
     </div>
+    <div class="bg-white shadow rounded p-4 text-center">
+  <h3 class="text-xs font-medium text-gray-500 uppercase tracking-wider">
+    No-Image Items
+  </h3>
+  <p class="mt-2 text-2xl font-semibold text-gray-900">
+    {{ no_image_count }}
+  </p>
+</div>
   </div>
 
   <!-- Filter + Batch‐Delete row -->
