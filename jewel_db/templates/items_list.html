@@ -4,6 +4,26 @@
 {% block title %}All Jewelry Items{% endblock %}
 
 {% block content %}
+  <!-- INVENTORY STATS -->
+  <div class="mb-6 grid grid-cols-4 gap-6">
+    <div class="bg-white shadow rounded p-4 text-center">
+      <div class="text-sm uppercase text-gray-500">Total Items</div>
+      <div class="text-2xl font-semibold">{{ total_count }}</div>
+    </div>
+    <div class="bg-white shadow rounded p-4 text-center">
+      <div class="text-sm uppercase text-gray-500">Average Price</div>
+      <div class="text-2xl font-semibold">{{ '%.2f'|format(avg_price) }} €</div>
+    </div>
+    <div class="bg-white shadow rounded p-4 text-center">
+      <div class="text-sm uppercase text-gray-500">Total Weight</div>
+      <div class="text-2xl font-semibold">{{ '%.2f'|format(total_weight) }} g</div>
+    </div>
+    <div class="bg-white shadow rounded p-4 text-center">
+      <div class="text-sm uppercase text-gray-500">Total Value</div>
+      <div class="text-2xl font-semibold">{{ '%.2f'|format(total_price) }} €</div>
+    </div>
+  </div>
+
   <!-- Filter + Batch‐Delete row -->
   <form
     method="get"
@@ -67,7 +87,6 @@
   <div id="grid" class="grid grid-cols-3 gap-6">
     {% for item in items %}
       <div class="bg-white shadow rounded p-4">
-        <!-- checkbox -->
         <input
           type="checkbox"
           class="select-item mb-2"
@@ -176,7 +195,7 @@
     </tbody>
   </table>
 
-  <!-- Pagination (unchanged) -->
+  <!-- Pagination -->
   <div class="mt-6 flex justify-center items-center space-x-4">
     {% if page > 1 %}
       <a
@@ -227,7 +246,7 @@ document.addEventListener("DOMContentLoaded", () => {
   // ―― initial call to set correct visibility ――
   updateBatchBtn();
 
-  // ―― existing batch-delete logic ――
+  // ―― batch-delete logic ――
   deleteSelectedBtn.addEventListener("click", async () => {
     const ids = getItemChecks().filter(cb => cb.checked).map(cb => Number(cb.value));
     if (!ids.length) return alert("No items selected");
@@ -235,13 +254,13 @@ document.addEventListener("DOMContentLoaded", () => {
     const res = await fetch("/api/items/batch", {
       method:  "DELETE",
       headers: { "Content-Type": "application/json" },
-body: JSON.stringify({ ids }),
+      body:    JSON.stringify({ ids }),
     });
     if (res.ok) return window.location.reload();
     alert("Batch delete failed");
   });
 
-  // ―― existing single-delete logic ――
+  // ―― single-delete logic ――
   document.querySelectorAll(".delete-item").forEach(btn => {
     btn.addEventListener("click", async () => {
       const id = btn.dataset.id;
@@ -252,7 +271,7 @@ body: JSON.stringify({ ids }),
     });
   });
 
-  // ―― your grid/list toggle (unchanged) ――
+  // ―― grid/list toggle ――
   const gridView = document.getElementById("gridView");
   const listView = document.getElementById("listView");
   const grid     = document.getElementById("grid");

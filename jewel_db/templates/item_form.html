@@ -3,7 +3,7 @@
 {% block title %}{% if item %}Edit {{ item.name }}{% else %}Add New Item{% endif %}{% endblock %}
 
 {% block content %}
-<form id="item-form" class="space-y-4">
+<form id="item-form" class="space-y-4" enctype="multipart/form-data">
   <input type="hidden" name="id" value="{{ item.id if item }}">
 
   <div>
@@ -74,6 +74,7 @@
     <label class="block mb-1">Upload Images</label>
     <input
       type="file"
+      id="file-input"
       name="files"
       multiple
       accept="image/*"
@@ -86,6 +87,7 @@
     <label class="block mb-1">—or Image URL</label>
     <input
       type="url"
+      id="url-input"
       name="image_url"
       placeholder="https://…"
       value="{{ item.image_url if item else '' }}"
@@ -109,4 +111,37 @@
 </form>
 {% endblock %}
 
-{% block scripts %}{% endblock %}
+{% block scripts %}
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+  const form = document.getElementById('item-form');
+  const fileInput = document.getElementById('file-input');
+  const urlInput = document.getElementById('url-input');
+
+  form.addEventListener('submit', (e) => {
+    // Clear previous errors
+    document.querySelectorAll('.error-msg').forEach(el => el.textContent = '');
+
+    const file = fileInput.files[0];
+    const url = urlInput.value.trim();
+
+    // Only validate file type if a file is selected
+    if (file) {
+      if (!file.type.startsWith('image/')) {
+        e.preventDefault();
+        fileInput.nextElementSibling.textContent = 'Invalid image type';
+        return;
+      }
+    }
+
+    // Allow empty selection (no image) or only URL; no warning needed
+    if (!file && url) {
+      // URL-only case: optionally could validate URL format here
+      return;
+    }
+
+    // Both file and URL empty: that's OK, proceed without image
+  });
+});
+</script>
+{% endblock %}

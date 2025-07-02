@@ -1,5 +1,4 @@
 # jewel_db/main.py
-from math import ceil
 
 from fastapi import Depends, FastAPI, HTTPException, Request
 from fastapi.responses import HTMLResponse
@@ -36,23 +35,13 @@ def home(request: Request):
 @app.get("/items", response_class=HTMLResponse)
 def list_items_page(
     request: Request,
+    page: int = 1,
     search: str | None = None,
     material: str | None = None,
     gemstone: str | None = None,
-    sort_by: str | None = None,
-    sort_dir: str = "asc",
-    page: int = 1,
-    page_size: int = 12,
-    session: Session = Depends(get_session),
+    session=Depends(get_session),
 ):
-    # Trim leading/trailing whitespace on all text inputs
-    search = search.strip() if search and search.strip() else None
-    material = material.strip() if material and material.strip() else None
-    gemstone = gemstone.strip() if gemstone and gemstone.strip() else None
-    sort_by = sort_by.strip() if sort_by and sort_by.strip() else None
-    sort_dir = sort_dir.strip() if sort_dir and sort_dir.strip() else "asc"
-
-    # 1) Base filter
+    # 1. Query & filter
     stmt = select(JewelryItem)
     if search:
         stmt = stmt.where(JewelryItem.name.ilike(f"%{search}%"))
@@ -64,77 +53,47 @@ def list_items_page(
         else:
             stmt = stmt.where(JewelryItem.gemstone == gemstone)
 
-    # 2) Compute full‐set stats
     all_items = session.exec(stmt).all()
+
+    # 2. Pagination
+    per_page = 9
     total_count = len(all_items)
-    total_weight = sum(i.weight or 0 for i in all_items)
-    total_price = sum(i.price or 0 for i in all_items)
-    avg_price = round(total_price / total_count, 2) if total_count else 0
+    total_pages = (total_count - 1) // per_page + 1
+    start = (page - 1) * per_page
+    end = start + per_page
+    items = all_items[start:end]
 
-    # 3) Count items with an image
-    ids = [i.id for i in all_items]
-    with_ids = (
-        session.exec(
-            select(JewelryImage.item_id).where(JewelryImage.item_id.in_(ids)).distinct()
-        ).all()
-        if ids
-        else []
+    # 3. Thumbnails lookup (whatever your code does)
+    thumbs = {item.id: item.images[0].url if item.images else None for item in items}
+
+    # 4. Stats
+    avg_price = (
+        (sum(i.price or 0 for i in all_items) / total_count) if total_count else 0
     )
-    no_count = total_count - len(with_ids)
+    total_weight = sum(i.weight or 0 for i in all_items)
+    total_price = sum(i.price or 0 for i in all_items)  # ← new line
 
-    # 4) Ordering: default by sort_order, or by chosen column
-    if sort_by in {"name", "price", "weight", "created_at"}:
-        field = getattr(JewelryItem, sort_by)
-        stmt = stmt.order_by(field.asc() if sort_dir == "asc" else field.desc())
-    else:
-        stmt = stmt.order_by(JewelryItem.sort_order.asc())
-
-    # 5) Pagination
-    total_pages = ceil(total_count / page_size) if total_count else 1
-    stmt = stmt.offset((page - 1) * page_size).limit(page_size)
-    items = session.exec(stmt).all()
-
-    # 6) Thumbnails for this page
-    thumbs: dict[int, str | None] = {}
-    for it in items:
-        url = (
-            session.exec(
-                select(JewelryImage.url)
-                .where(JewelryImage.item_id == it.id)
-                .order_by(JewelryImage.sort_order)
-            ).first()
-            or None
-        )
-        thumbs[it.id] = url
-
-    # 7) Facets
-    materials = session.exec(
-        select(JewelryItem.material).distinct().order_by(JewelryItem.material)
-    ).all()
-    gemstones = session.exec(
-        select(JewelryItem.gemstone).distinct().order_by(JewelryItem.gemstone)
-    ).all()
+    # 5. Distinct filters
+    materials = sorted({i.material for i in all_items if i.material})
+    gemstones = sorted({i.gemstone for i in all_items if i.gemstone})
 
     return templates.TemplateResponse(
         "items_list.html",
         {
             "request": request,
             "items": items,
+            "materials": materials,
+            "gemstones": gemstones,
             "thumbs": thumbs,
+            "page": page,
+            "total_pages": total_pages,
             "search": search,
             "material": material,
             "gemstone": gemstone,
-            "materials": materials,
-            "gemstones": gemstones,
-            "sort_by": sort_by,
-            "sort_dir": sort_dir,
-            "page": page,
-            "page_size": page_size,
-            "total_pages": total_pages,
             "total_count": total_count,
             "avg_price": avg_price,
             "total_weight": total_weight,
-            "no_count": no_count,
+            "total_price": total_price,  # ← make sure this is here
         },
     )
 

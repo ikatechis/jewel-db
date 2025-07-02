@@ -35,9 +35,13 @@ MAX_DIMENSION = 2000  # pixels
 )
 async def upload_item_images(
     item_id: int,
-    files: list[UploadFile] = File(...),
+    files: list[UploadFile] = File([]),  # allow zero files
     session: Session = Depends(get_session),
 ):
+    # If no files were uploaded, do nothing and return empty list
+    if not files:
+        return []
+
     item = session.get(JewelryItem, item_id)
     if not item:
         raise HTTPException(status_code=404, detail="Item not found")
