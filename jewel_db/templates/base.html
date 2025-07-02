@@ -6,18 +6,26 @@
     <title>{% block title %}Jewelry Inventory{% endblock %}</title>
     <!-- Tailwind CDN -->
     <script src="https://cdn.tailwindcss.com"></script>
+
+    <!-- Global helper scripts (loaded once for all pages) -->
+    <script src="{{ url_for('static', path='js/webcam_capture.js') }}"></script>
+    <script type="module" src="{{ url_for('static', path='js/tag_select.js') }}"></script>
+
+    {% block extra_scripts %}{% endblock %}
   </head>
-  <script src="{{ url_for('static', path='js/webcam_capture.js') }}"></script>
-  {% block extra_scripts %}{% endblock %}
+
   <body class="bg-gray-50 text-gray-800">
     <header class="bg-white shadow-md">
-      <div class="max-w-4xl mx-auto px-4 py-6 flex justify-between">
+      <div class="max-w-4xl mx-auto px-4 py-6 flex flex-wrap items-center justify-between">
         <h1 class="text-3xl font-bold">
           <a href="/" class="text-current no-underline">Jewelry Inventory</a>
         </h1>
-        <nav class="space-x-4">
-          <a href="/items" class="hover:underline">Items</a>
-          <a href="/items/create" class="hover:underline">Add Item</a>
+
+        <!-- Global navigation -->
+        <nav class="space-x-4 text-lg">
+          <a href="/items"          class="hover:underline">Items</a>
+          <a href="/tags"           class="hover:underline">Tags</a>   <!-- NEW -->
+          <a href="/items/create"   class="hover:underline">Add&nbsp;Item</a>
         </nav>
       </div>
     </header>
@@ -30,9 +38,8 @@
       &copy; 2025 Your Company
     </footer>
 
-    <!-- Global JS -->
-    <script src="/static/js/main.js"></script>
-    <!-- Per-page JS -->
+    <!-- Per-page scripts -->
     {% block scripts %}{% endblock %}
   </body>
 </html>
+

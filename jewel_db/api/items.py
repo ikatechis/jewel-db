@@ -15,6 +15,7 @@ from jewel_db.models.jewelry_item import (
     JewelryItemCreate,
     JewelryItemUpdate,
 )
+from jewel_db.models.jewelry_tag import JewelryTag
 from jewel_db.services.image_utils import normalise_image
 
 # ──────────────────────────────────────────────────────────────────────────────
@@ -174,7 +175,17 @@ def create_item(
     session: Session = Depends(get_session),
     item_in: JewelryItemCreate,
 ):
-    item = JewelryItem.model_validate(item_in)
+    # ensure lowercase tags
+    tag_objs = []
+    for name in item_in.tags or []:
+        tag = session.exec(
+            select(JewelryTag).where(JewelryTag.name == name.lower())
+        ).first()
+        if not tag:
+            tag = JewelryTag(name=name.lower())
+            session.add(tag)
+        tag_objs.append(tag)
+    item = JewelryItem.model_validate(item_in, update={"tags": tag_objs})
     session.add(item)
     try:
         session.commit()
@@ -221,14 +232,34 @@ def update_item(
     item = session.get(JewelryItem, item_id)
     if not item:
         raise HTTPException(status_code=404, detail="Item not found")
-    for k, v in item_in.model_dump(exclude_unset=True).items():
+
+    # ── 1. scalar fields (everything except tags) ───────────────
+    data = item_in.model_dump(exclude_unset=True, exclude={"tags"})
+    for k, v in data.items():
         setattr(item, k, v)
+
+    # ── 2. tags (replace whole set if provided) ────────────────
+    if item_in.tags is not None:
+        tag_objs = []
+        for name in item_in.tags:
+            name = name.lower()
+            tag = session.exec(
+                select(JewelryTag).where(JewelryTag.name == name)
+            ).first()
+            if not tag:
+                tag = JewelryTag(name=name)
+                session.add(tag)
+            tag_objs.append(tag)
+        item.tags = tag_objs  # replace M2M collection
+
+    # ── 3. commit once ─────────────────────────────────────────
     session.add(item)
     try:
         session.commit()
     except IntegrityError:
         session.rollback()
         raise HTTPException(status_code=400, detail="Name must be unique")
+
     session.refresh(item)
     return item
 

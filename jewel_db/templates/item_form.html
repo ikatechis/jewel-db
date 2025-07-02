@@ -2,7 +2,7 @@
 {% block title %}{% if item %}Edit {{ item.name }}{% else %}Add New Item{% endif %}{% endblock %}
 
 {% block content %}
-<form id="item-form" class="space-y-4" enctype="multipart/form-data">
+<form id="item-form" class="space-y-4">
   <input type="hidden" name="id" value="{{ item.id if item }}">
 
   <!-- Name -->
@@ -18,6 +18,17 @@
     <div class="error-msg text-red-600 text-sm mt-1"></div>
   </div>
 
+  <!-- Category -->
+  <div>
+    <label class="block mb-1">Category</label>
+    {% set cat = item.category if item else '' %}
+    <select name="category" class="w-full border rounded p-2">
+      {% for c in ['ring','bracelet','earring','necklace','brooch','other'] %}
+        <option value="{{ c }}" {% if c==cat %}selected{% endif %}>{{ c.title() }}</option>
+      {% endfor %}
+    </select>
+  </div>
+
   <!-- Material -->
   <div>
     <label class="block mb-1">Material</label>
@@ -26,7 +37,6 @@
       value="{{ item.material if item else '' }}"
       class="w-full border rounded p-2"
     >
-    <div class="error-msg text-red-600 text-sm mt-1"></div>
   </div>
 
   <!-- Gemstone -->
@@ -40,11 +50,10 @@
       class="w-full border rounded p-2"
     >
     <datalist id="gemstone-list">
-      <option value="Diamond"><option value="Ruby"><option value="Sapphire">
-      <option value="Emerald"><option value="Pearl"><option value="Opal">
-      <option value="Other">
+      <option value="diamond"><option value="ruby"><option value="sapphire">
+      <option value="emerald"><option value="pearl"><option value="opal">
+      <option value="other">
     </datalist>
-    <div class="error-msg text-red-600 text-sm mt-1"></div>
   </div>
 
   <!-- Weight & Price -->
@@ -58,7 +67,6 @@
         value="{{ item.weight if item else 0 }}"
         class="w-full border rounded p-2"
       >
-      <div class="error-msg text-red-600 text-sm mt-1"></div>
     </div>
     <div>
       <label class="block mb-1">Price</label>
@@ -69,8 +77,28 @@
         value="{{ item.price if item else 0 }}"
         class="w-full border rounded p-2"
       >
-      <div class="error-msg text-red-600 text-sm mt-1"></div>
     </div>
+  </div>
+
+  <!-- Tags -->
+  <div>
+    <label class="block mb-1">Tags</label>
+
+    <input id="tags-input"
+           data-list-id="tags-datalist"
+           type="text"
+           placeholder="Start typing…"
+           class="w-full border rounded p-2">
+    <datalist id="tags-datalist"></datalist>
+
+    <!-- pills -->
+    <div id="tags-pillbox" class="flex flex-wrap gap-1 mt-2"></div>
+
+    <!-- hidden JSON array -->
+    <input type="hidden"
+           name="tags"
+           id="tags-hidden"
+           value="{{ item.tags|map(attribute='name')|list|tojson if item else '[]' }}">
   </div>
 
   <!-- Upload / Webcam -->
@@ -79,17 +107,13 @@
     <input
       id="file-input"
       type="file"
-      name="files"
       accept="image/*"
       multiple
-      onchange="if (!this.files.length) return;"
       class="w-full"
     >
-    <button
-      type="button"
-      id="webcam-btn"
-      class="mt-2 bg-gray-600 text-white px-3 py-1 rounded"
-    >
+    <button type="button"
+            id="webcam-btn"
+            class="mt-2 bg-gray-600 text-white px-3 py-1 rounded">
       Capture&nbsp;via&nbsp;Webcam
     </button>
     <div class="error-msg text-red-600 text-sm mt-1"></div>
@@ -101,22 +125,16 @@
     <input
       type="url"
       id="url-input"
-      name="image_url"
       placeholder="https://…"
-      value="{{ item.image_url if item else '' }}"
-      class="w-full border rounded p-2"
-    >
-    <div class="error-msg text-red-600 text-sm mt-1"></div>
+      class="w-full border rounded p-2">
   </div>
 
   <!-- Description -->
   <div>
     <label class="block mb-1">Description</label>
-    <textarea
-      name="description"
-      class="w-full border rounded p-2"
-    >{{ item.description if item else '' }}</textarea>
-    <div class="error-msg text-red-600 text-sm mt-1"></div>
+    <textarea name="description"
+              rows="3"
+              class="w-full border rounded p-2">{{ item.description if item else '' }}</textarea>
   </div>
 
   <!-- Submit -->
@@ -127,31 +145,91 @@
 {% endblock %}
 
 {% block scripts %}
-<script>
-document.addEventListener('DOMContentLoaded', () => {
-  const form      = document.getElementById('item-form');
-  const fileInput = document.getElementById('file-input');
-  const urlInput  = document.getElementById('url-input');
+<script type="module">
+import { attachTagInput } from "{{ url_for('static', path='js/tag_select.js') }}";
 
-  /* Existing client-side validation */
-  form.addEventListener('submit', (e) => {
-    document.querySelectorAll('.error-msg').forEach(el => el.textContent = '');
+document.addEventListener("DOMContentLoaded", () => {
+  const form       = document.getElementById("item-form");
+  const fileInput  = document.getElementById("file-input");
+  const urlInput   = document.getElementById("url-input");
+  const tagInput   = document.getElementById("tags-input");
+  const tagHidden  = document.getElementById("tags-hidden");
+  const pillbox    = document.getElementById("tags-pillbox");
 
-    const file = fileInput.files[0];
-    const url  = urlInput.value.trim();
+  /* ---- tag helper ---- */
+  attachTagInput(tagInput, tagHidden);
 
-    if (file && !file.type.startsWith('image/')) {
-      e.preventDefault();
-      fileInput.nextElementSibling.textContent = 'Invalid image type';
+  function addPill(tag) {
+    if ([...pillbox.children].some(p => p.dataset.tag === tag)) return;
+    const pill = document.createElement("span");
+    pill.dataset.tag = tag;
+    pill.className = "bg-blue-600 text-white text-xs rounded px-2 py-0.5 cursor-pointer";
+    pill.textContent = `${tag} ×`;
+    pill.onclick = () => { pill.remove(); syncHidden(); };
+    pillbox.appendChild(pill);
+    syncHidden();
+  }
+
+  function syncHidden() {
+    tagHidden.value = JSON.stringify([...pillbox.children].map(p => p.dataset.tag));
+  }
+
+  /* pre-populate pills for edit mode */
+  JSON.parse(tagHidden.value || "[]").forEach(addPill);
+
+  /* listen for attachTagInput events */
+  tagInput.addEventListener("tag-added", e => addPill(e.detail));
+
+  /* ---- webcam ---- */
+  if (typeof initWebcamCapture === "function") {
+    initWebcamCapture("#webcam-btn", "#file-input");
+  }
+
+  /* ---- custom submit ---- */
+  form.addEventListener("submit", async (evt) => {
+    evt.preventDefault();
+    document.querySelectorAll(".error-msg").forEach(el => el.textContent = "");
+
+    /* simple file-type guard */
+    const f0 = fileInput.files[0];
+    if (f0 && !f0.type.startsWith("image/")) {
+      fileInput.nextElementSibling.textContent = "Invalid image type";
       return;
     }
-    /* URL-only or no image at all are both OK */
-  });
 
-  /* NEW: hook the webcam button to the helper */
-  if (typeof initWebcamCapture === 'function') {
-    initWebcamCapture('#webcam-btn', '#file-input');
-  }
+    /* collect fields */
+    const body = {
+      name: form.name.value.trim(),
+      category: form.category.value || null,
+      material: form.material.value || null,
+      gemstone: form.gemstone.value || null,
+      weight:   parseFloat(form.weight.value) || 0,
+      price:    parseFloat(form.price.value)  || 0,
+      description: form.description.value || null,
+      tags: JSON.parse(tagHidden.value || "[]"),
+    };
+
+    /* create item */
+    const r = await fetch("/api/items", {
+      method: "POST",
+      headers: {"Content-Type":"application/json"},
+      body: JSON.stringify(body)
+    });
+    if (!r.ok) { alert("Save object failed"); return; }
+    const saved = await r.json();
+
+    /* optional image / url upload */
+    if (fileInput.files.length || urlInput.value.trim()) {
+      const fd = new FormData();
+      [...fileInput.files].forEach(f => fd.append("files", f));
+      const urlVal = urlInput.value.trim();
+      if (urlVal) fd.append("url", urlVal);
+      await fetch(`/api/items/${saved.id}/images`, {method:"POST", body: fd});
+    }
+
+    /* redirect */
+    window.location.href = `/items/${saved.id}`;
+  });
 });
 </script>
 {% endblock %}

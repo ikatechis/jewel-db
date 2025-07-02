@@ -3,53 +3,55 @@ from __future__ import annotations
 
 from datetime import datetime
 
-from pydantic import field_validator
 from sqlalchemy.orm import relationship
 from sqlmodel import Field, Relationship, SQLModel
 
-from .jewelry_image import JewelryImage
+from .jewelry_tag import ItemTagLink, JewelryTag
 
 
 class JewelryItemBase(SQLModel):
-    name: str = Field(index=True, unique=True, description="Item name/title")
-    material: str | None = Field(default=None, description="Primary material")
-    gemstone: str | None = Field(default=None, description="Gemstone type")
-    weight: float | None = Field(default=None, description="Weight in grams")
-    price: float | None = Field(default=None, description="Price in your currency")
-    created_at: datetime = Field(
-        default_factory=datetime.utcnow, description="Creation timestamp"
-    )
-    description: str | None = Field(default=None, description="Detailed description")
-
-    @field_validator("*", mode="before")
-    def strip_whitespace(cls, v):
-        if isinstance(v, str):
-            return v.strip()
-        return v
+    name: str = Field(index=True)
+    category: str | None = None
+    material: str | None = None
+    gemstone: str | None = None
+    weight: float | None = 0.0
+    price: float | None = 0.0
+    description: str | None = None
+    sort_order: int | None = 9999
+    created_at: datetime = Field(default_factory=datetime.utcnow)
 
 
 class JewelryItem(JewelryItemBase, table=True):
     id: int | None = Field(default=None, primary_key=True)
-    sort_order: int = Field(default=0, index=True, description="UI sort order")
 
-    images: list[JewelryImage] = Relationship(
+    images: list[JewelryImage] = Relationship(  # noqa: F821
         sa_relationship=relationship(
             "JewelryImage",
             back_populates="item",
-            order_by="JewelryImage.sort_order",
             cascade="all, delete-orphan",
         )
     )
 
+    tags: list[JewelryTag] = Relationship(
+        sa_relationship=relationship(
+            "JewelryTag",
+            secondary="itemtaglink",
+            back_populates="items",
+        ),
+        link_model=ItemTagLink,
+    )
+
 
 class JewelryItemCreate(JewelryItemBase):
-    pass
+    tags: list[str] = []
 
 
 class JewelryItemUpdate(SQLModel):
     name: str | None = None
+    category: str | None = None
     material: str | None = None
     gemstone: str | None = None
     weight: float | None = None
     price: float | None = None
     description: str | None = None
+    tags: list[str] | None = None

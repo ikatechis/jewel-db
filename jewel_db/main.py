@@ -1,4 +1,5 @@
 # jewel_db/main.py
+from __future__ import annotations
 
 from fastapi import Depends, FastAPI, HTTPException, Request
 from fastapi.responses import HTMLResponse
@@ -7,10 +8,12 @@ from fastapi.templating import Jinja2Templates
 from sqlmodel import Session, select
 
 from .api.items import router as items_router
+from .api.tags import router as tags_router
 from .config import DEBUG
 from .db import get_session, init_db
 from .models.jewelry_image import JewelryImage
-from .models.jewelry_item import JewelryItem  # ← top‐level import
+from .models.jewelry_item import JewelryItem
+from .models.jewelry_tag import JewelryTag  # ← NEW
 
 app = FastAPI(title="Jewelry Inventory System", debug=DEBUG)
 
@@ -20,13 +23,19 @@ def on_startup():
     init_db()
 
 
+# static & upload mounts
 app.mount("/static", StaticFiles(directory="jewel_db/static"), name="static")
 app.mount("/media", StaticFiles(directory="media"), name="media")
-app.include_router(items_router, prefix="/api")
 
+# API routers
+app.include_router(items_router, prefix="/api")
+app.include_router(tags_router, prefix="/api")
+
+# templates
 templates = Jinja2Templates(directory="jewel_db/templates")
 
 
+# ────────────────────────── Pages ──────────────────────────
 @app.get("/", response_class=HTMLResponse)
 def home(request: Request):
     return templates.TemplateResponse("index.html", {"request": request})
@@ -39,42 +48,42 @@ def list_items_page(
     search: str | None = None,
     material: str | None = None,
     gemstone: str | None = None,
-    session=Depends(get_session),
+    session: Session = Depends(get_session),
 ):
-    # 1. Query & filter
+    # 1. filters
     stmt = select(JewelryItem)
     if search:
         stmt = stmt.where(JewelryItem.name.ilike(f"%{search}%"))
     if material:
         stmt = stmt.where(JewelryItem.material == material)
     if gemstone:
-        if gemstone == "None":
-            stmt = stmt.where(JewelryItem.gemstone.is_(None))
-        else:
-            stmt = stmt.where(JewelryItem.gemstone == gemstone)
+        stmt = stmt.where(
+            JewelryItem.gemstone.is_(None)
+            if gemstone == "None"
+            else JewelryItem.gemstone == gemstone
+        )
 
     all_items = session.exec(stmt).all()
 
-    # 2. Pagination
+    # 2. paginate
     per_page = 9
     total_count = len(all_items)
-    total_pages = (total_count - 1) // per_page + 1
-    start = (page - 1) * per_page
-    end = start + per_page
+    total_pages = (total_count - 1) // per_page + 1 if total_count else 1
+    start, end = (page - 1) * per_page, (page - 1) * per_page + per_page
     items = all_items[start:end]
 
-    # 3. Thumbnails lookup (whatever your code does)
-    thumbs = {item.id: item.images[0].url if item.images else None for item in items}
+    # 3. thumbs
+    thumbs = {i.id: (i.images[0].url if i.images else None) for i in items}
 
-    # 4. Stats
+    # 4. stats
     avg_price = (
         (sum(i.price or 0 for i in all_items) / total_count) if total_count else 0
     )
-    total_weight = sum(i.weight or 0 for i in all_items)
     total_price = sum(i.price or 0 for i in all_items)
+    total_weight = sum(i.weight or 0 for i in all_items)
     no_image_count = sum(1 for i in all_items if not i.images)
 
-    # 5. Distinct filters
+    # 5. distinct filters
     materials = sorted({i.material for i in all_items if i.material})
     gemstones = sorted({i.gemstone for i in all_items if i.gemstone})
 
@@ -134,6 +143,17 @@ def item_edit(request: Request, item_id: int, session: Session = Depends(get_ses
     )
 
 
+# ──────────────── NEW: Tags admin page ────────────────
+@app.get("/tags", response_class=HTMLResponse)
+def tags_list_page(request: Request, session: Session = Depends(get_session)):
+    tags = session.exec(select(JewelryTag).order_by(JewelryTag.name)).all()
+    return templates.TemplateResponse(
+        "tags_list.html",
+        {"request": request, "tags": tags},
+    )
+
+
+# ────────────────────────── Health ─────────────────────────
 @app.get("/api/health")
 def health_check():
     return {"status": "ok"}
