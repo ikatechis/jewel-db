@@ -6,7 +6,8 @@ from datetime import datetime
 from sqlalchemy.orm import relationship
 from sqlmodel import Field, Relationship, SQLModel
 
-from .jewelry_tag import ItemTagLink, JewelryTag
+from .jewelry_image import JewelryImage  # noqa: F401, F811
+from .jewelry_tag import ItemTagLink, JewelryTag, JewelryTagRead
 
 
 class JewelryItemBase(SQLModel):
@@ -55,3 +56,18 @@ class JewelryItemUpdate(SQLModel):
     price: float | None = None
     description: str | None = None
     tags: list[str] | None = None
+
+
+class JewelryItemRead(SQLModel):
+    id: int
+    name: str
+    category: str | None
+    material: str | None
+    gemstone: str | None
+    weight: float | None
+    price: float | None
+    description: str | None
+    sort_order: int | None
+    created_at: datetime
+    # include the related tags
+    tags: list[JewelryTagRead] = []
