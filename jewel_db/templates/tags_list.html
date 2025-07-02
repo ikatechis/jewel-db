@@ -1,0 +1,151 @@
+{% extends "base.html" %}
+{% block title %}Manage Tags – Jewelry Inventory{% endblock %}
+
+{% block content %}
+
+<!-- PAGE HEADER -->
+<div class="flex items-center justify-between mb-6">
+  <h2 class="text-2xl font-semibold">Manage Tags</h2>
+  <a href="/items" class="text-sm underline text-gray-600">← Back to items</a>
+</div>
+
+<!-- ADD NEW TAG -->
+<div class="mb-6 flex space-x-2">
+  <input id="new-tag-input"
+         type="text"
+         placeholder="New tag…"
+         class="flex-1 border rounded p-2"
+  />
+  <button id="add-tag-btn"
+          class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded">
+    Add
+  </button>
+</div>
+
+<!-- TAGS TABLE -->
+<table class="min-w-full divide-y divide-gray-200 bg-white shadow rounded">
+  <thead class="bg-gray-50">
+    <tr>
+      <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Tag</th>
+      <th class="px-4 py-2"></th>
+    </tr>
+  </thead>
+  <tbody id="tags-tbody" class="divide-y divide-gray-100">
+    <!-- filled by JS -->
+  </tbody>
+</table>
+
+{% endblock %}
+
+{% block scripts %}
+<script type="module">
+document.addEventListener('DOMContentLoaded', () => {
+
+  const tbody   = document.getElementById('tags-tbody');
+  const input   = document.getElementById('new-tag-input');
+  const addBtn  = document.getElementById('add-tag-btn');
+
+  /* ---------- helpers ---------- */
+  const rowHtml = (tag) => `
+    <tr data-id="${tag.id}">
+      <td class="px-4 py-2">
+        <span class="tag-name">${tag.name}</span>
+        <input type="text"
+               class="tag-edit-input border rounded p-1 w-full hidden"
+               value="${tag.name}">
+      </td>
+      <td class="px-4 py-2 text-right space-x-2">
+        <button class="edit-btn  bg-yellow-500 hover:bg-yellow-600 text-white text-xs px-2 py-0.5 rounded">Edit</button>
+        <button class="save-btn  bg-green-600  hover:bg-green-700  text-white text-xs px-2 py-0.5 rounded hidden">Save</button>
+        <button class="cancel-btn bg-gray-400  hover:bg-gray-500  text-white text-xs px-2 py-0.5 rounded hidden">Cancel</button>
+        <button class="del-btn   bg-red-600    hover:bg-red-700   text-white text-xs px-2 py-0.5 rounded">Delete</button>
+      </td>
+    </tr>`;
+
+  const loadTags = async () => {
+    const tags = await fetch('/api/tags').then(r => r.json());
+    tbody.innerHTML = tags.map(rowHtml).join('');
+  };
+
+  /* ---------- add new ---------- */
+  addBtn.onclick = async () => {
+    const name = input.value.trim().toLowerCase();
+    if (!name) return;
+    const res = await fetch('/api/tags', {
+      method: 'POST',
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({name})
+    });
+    if (res.ok) {
+      input.value = '';
+      loadTags();
+    } else {
+      alert('Tag already exists or server error.');
+    }
+  };
+
+  /* ---------- row actions ---------- */
+  tbody.addEventListener('click', async (e) => {
+    const tr   = e.target.closest('tr');
+    if (!tr) return;
+    const id   = tr.dataset.id;
+    const nameSpan   = tr.querySelector('.tag-name');
+    const editInput  = tr.querySelector('.tag-edit-input');
+    const editBtn    = tr.querySelector('.edit-btn');
+    const saveBtn    = tr.querySelector('.save-btn');
+    const cancelBtn  = tr.querySelector('.cancel-btn');
+
+    /* --- edit --- */
+    if (e.target.classList.contains('edit-btn')) {
+      nameSpan.hidden = true;
+      editInput.hidden = false;
+      editInput.focus();
+      editBtn.hidden = true;
+      saveBtn.hidden = cancelBtn.hidden = false;
+      return;
+    }
+
+    /* --- cancel --- */
+    if (e.target.classList.contains('cancel-btn')) {
+      editInput.value = nameSpan.textContent;
+      nameSpan.hidden = false;
+      editInput.hidden = true;
+      saveBtn.hidden = cancelBtn.hidden = true;
+      editBtn.hidden = false;
+      return;
+    }
+
+    /* --- save --- */
+    if (e.target.classList.contains('save-btn')) {
+      const newName = editInput.value.trim().toLowerCase();
+      if (!newName) return;
+      const ok = (await fetch(`/api/tags/${id}`, {
+        method:'PATCH',
+        headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({name: newName})
+      })).ok;
+      if (ok) {
+        nameSpan.textContent = newName;
+        nameSpan.hidden = false;
+        editInput.hidden = true;
+        saveBtn.hidden = cancelBtn.hidden = true;
+        editBtn.hidden = false;
+      } else {
+        alert('Update failed.');
+      }
+      return;
+    }
+
+    /* --- delete --- */
+    if (e.target.classList.contains('del-btn')) {
+      if (!confirm('Delete this tag?')) return;
+      const ok = (await fetch(`/api/tags/${id}`, {method:'DELETE'})).ok;
+      if (ok) tr.remove();
+    }
+  });
+
+  /* ---------- init ---------- */
+  loadTags();
+});
+</script>
+{% endblock %}
