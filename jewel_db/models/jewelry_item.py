@@ -3,6 +3,7 @@ from __future__ import annotations
 
 from datetime import datetime
 
+from pydantic import field_validator
 from sqlalchemy.orm import relationship
 from sqlmodel import Field, Relationship, SQLModel
 
@@ -19,6 +20,12 @@ class JewelryItemBase(SQLModel):
         default_factory=datetime.utcnow, description="Creation timestamp"
     )
     description: str | None = Field(default=None, description="Detailed description")
+
+    @field_validator("*", mode="before")
+    def strip_whitespace(cls, v):
+        if isinstance(v, str):
+            return v.strip()
+        return v
 
 
 class JewelryItem(JewelryItemBase, table=True):

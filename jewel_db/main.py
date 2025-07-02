@@ -36,7 +36,7 @@ def home(request: Request):
 @app.get("/items", response_class=HTMLResponse)
 def list_items_page(
     request: Request,
-    q: str | None = None,
+    search: str | None = None,
     material: str | None = None,
     gemstone: str | None = None,
     sort_by: str | None = None,
@@ -45,14 +45,24 @@ def list_items_page(
     page_size: int = 12,
     session: Session = Depends(get_session),
 ):
+    # Trim leading/trailing whitespace on all text inputs
+    search = search.strip() if search and search.strip() else None
+    material = material.strip() if material and material.strip() else None
+    gemstone = gemstone.strip() if gemstone and gemstone.strip() else None
+    sort_by = sort_by.strip() if sort_by and sort_by.strip() else None
+    sort_dir = sort_dir.strip() if sort_dir and sort_dir.strip() else "asc"
+
     # 1) Base filter
     stmt = select(JewelryItem)
-    if q:
-        stmt = stmt.where(JewelryItem.name.ilike(f"%{q}%"))
+    if search:
+        stmt = stmt.where(JewelryItem.name.ilike(f"%{search}%"))
     if material:
         stmt = stmt.where(JewelryItem.material == material)
     if gemstone:
-        stmt = stmt.where(JewelryItem.gemstone == gemstone)
+        if gemstone == "None":
+            stmt = stmt.where(JewelryItem.gemstone.is_(None))
+        else:
+            stmt = stmt.where(JewelryItem.gemstone == gemstone)
 
     # 2) Compute full‐set stats
     all_items = session.exec(stmt).all()
@@ -111,7 +121,7 @@ def list_items_page(
             "request": request,
             "items": items,
             "thumbs": thumbs,
-            "q": q,
+            "search": search,
             "material": material,
             "gemstone": gemstone,
             "materials": materials,

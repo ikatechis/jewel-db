@@ -27,7 +27,7 @@
               title="Delete this image">×</button>
       <img src="{{ img.url }}" class="w-full h-48 object-cover" loading="lazy"/>
       {% if img.sort_order == 1 %}
-      <span class="absolute top-2 left-2 bg-yellow-400 text-white px-1 rounded text-sm z-10">★ Thumbnail</span>
+        <span data-badge="thumb" class="absolute top-2 left-2 bg-yellow-400 text-white px-1 rounded text-sm z-10">★ Thumbnail</span>
       {% endif %}
     </li>
     {% endfor %}
