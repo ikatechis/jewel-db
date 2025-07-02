@@ -1,11 +1,10 @@
 # jewel_db/api/items.py
+from __future__ import annotations
 
 import uuid
-from io import BytesIO
 from pathlib import Path
 
 from fastapi import APIRouter, Body, Depends, File, HTTPException, UploadFile
-from PIL import Image
 from sqlalchemy.exc import IntegrityError
 from sqlmodel import Session, select
 
@@ -16,14 +15,14 @@ from jewel_db.models.jewelry_item import (
     JewelryItemCreate,
     JewelryItemUpdate,
 )
+from jewel_db.services.image_utils import normalise_image
 
+# ──────────────────────────────────────────────────────────────────────────────
 router = APIRouter(prefix="/items", tags=["items"])
 
-# Media and validation constants
 MEDIA_DIR = Path("media")
-ALLOWED_TYPES = {"image/jpeg", "image/png", "image/gif"}
-MAX_FILE_SIZE = 2 * 1024 * 1024  # 2 MB
-MAX_DIMENSION = 2000  # pixels
+ALLOWED_TYPES = {"image/jpeg", "image/png", "image/webp", "image/gif"}  # gif kept as-is
+MEDIA_DIR.mkdir(exist_ok=True)
 
 # ─── Image endpoints ─────────────────────────────────────────────────────────
 
@@ -35,17 +34,20 @@ MAX_DIMENSION = 2000  # pixels
 )
 async def upload_item_images(
     item_id: int,
-    files: list[UploadFile] = File([]),  # allow zero files
+    files: list[UploadFile] = File([]),
     session: Session = Depends(get_session),
 ):
-    # If no files were uploaded, do nothing and return empty list
-    if not files:
-        return []
-    # Strip out “ghost” file parts some browsers send when no image is chosen
+    """Attach one or more images to an item.
+
+    • Empty file list → no-op
+    • Images of any size are down-scaled to ≤1600 px on the longest side
+      (see `services/image_utils.py`) and saved as high-quality JPEG/PNG.
+    """
+    # Strip out phantom parts browsers send when no file is chosen
     files = [
         f for f in files if f.filename and f.content_type != "application/octet-stream"
     ]
-    if not files:  # truly nothing to process
+    if not files:
         return []
 
     item = session.get(JewelryItem, item_id)
@@ -62,78 +64,59 @@ async def upload_item_images(
         or 0
     )
 
-    MEDIA_DIR.mkdir(exist_ok=True)
     saved: list[JewelryImage] = []
-    for idx, file in enumerate(files):
-        contents = await file.read()
-
-        # Validate type & size
-        if file.content_type not in ALLOWED_TYPES:
+    for idx, upload in enumerate(files):
+        if upload.content_type not in ALLOWED_TYPES:
             raise HTTPException(status_code=400, detail="Invalid image type")
-        if len(contents) > MAX_FILE_SIZE:
-            raise HTTPException(status_code=400, detail="Image too large")
 
-        # Validate dimensions
-        try:
-            img = Image.open(BytesIO(contents))
-        except Exception:
-            raise HTTPException(status_code=400, detail="Invalid image file")
-        if img.width > MAX_DIMENSION or img.height > MAX_DIMENSION:
-            raise HTTPException(status_code=400, detail="Image dimensions too large")
+        raw = await upload.read()
 
-        # Save to disk
-        ext = file.filename.rsplit(".", 1)[-1].lower()
-        fname = f"{uuid.uuid4().hex}.{ext}"
-        path = MEDIA_DIR / fname
-        path.write_bytes(contents)
+        # GIFs are left untouched (no resize); others go through the helper
+        if upload.content_type == "image/gif":
+            data = raw
+            ext = ".gif"
+        else:
+            data, ext = normalise_image(raw, upload.content_type)
 
-        # Persist ORM object
-        dbi = JewelryImage(
+        fname = f"{uuid.uuid4().hex}{ext}"
+        (MEDIA_DIR / fname).write_bytes(data)
+
+        img = JewelryImage(
             url=f"/media/{fname}",
             sort_order=max_order + idx + 1,
             item_id=item_id,
         )
-        session.add(dbi)
-        saved.append(dbi)
+        session.add(img)
+        saved.append(img)
 
     session.commit()
     return saved
 
 
-@router.get(
-    "/{item_id}/images",
-    response_model=list[JewelryImage],
-)
+@router.get("/{item_id}/images", response_model=list[JewelryImage])
 def list_item_images(
     item_id: int,
     session: Session = Depends(get_session),
 ):
-    """
-    Return all images for an item, ordered by sort_order.
-    This lets your front-end do a GET /api/items/{item_id}/images
-    instead of 405'ing.
-    """
+    """Return all images for an item, ordered by sort_order."""
     item = session.get(JewelryItem, item_id)
     if not item:
         raise HTTPException(status_code=404, detail="Item not found")
 
-    images = session.exec(
+    return session.exec(
         select(JewelryImage)
         .where(JewelryImage.item_id == item_id)
         .order_by(JewelryImage.sort_order)
     ).all()
-    return images
 
 
-@router.patch(
-    "/{item_id}/images/reorder",
-    status_code=204,
-)
+@router.patch("/{item_id}/images/reorder", status_code=204)
 def reorder_images(
     item_id: int,
     new_order: list[int] = Body(..., embed=True),
     session: Session = Depends(get_session),
 ):
+    """Re-assign sort_order based on *new_order* list of image IDs."""
     for idx, img_id in enumerate(new_order):
         img = session.get(JewelryImage, img_id)
         if img and img.item_id == item_id:
@@ -142,47 +125,38 @@ def reorder_images(
     session.commit()
 
 
-@router.delete(
-    "/{item_id}/images/{image_id}",
-    status_code=204,
-)
+@router.delete("/{item_id}/images/{image_id}", status_code=204)
 def delete_item_image(
     *,
     item_id: int,
     image_id: int,
     session: Session = Depends(get_session),
 ):
-    """
-    Delete a single JewelryImage (and its file) if it belongs to the given item,
-    then re‐assign sort_order so the next image becomes the new thumbnail.
-    """
+    """Remove a single image file + DB row, then compact sort_order."""
     img = session.get(JewelryImage, image_id)
     if not img or img.item_id != item_id:
         raise HTTPException(status_code=404, detail="Image not found")
 
-    # 1) delete file on disk
+    # Delete file on disk (best-effort)
     file_path = MEDIA_DIR / Path(img.url).name
-    if file_path.exists():
-        try:
+    try:
+        if file_path.exists():
             file_path.unlink()
-        except Exception:
-            pass
+    except Exception:
+        pass
 
-    # 2) delete the record
     session.delete(img)
     session.commit()
 
-    # 3) re‐normalize remaining images' sort_order
+    # Re-normalize remaining images
     remaining = session.exec(
         select(JewelryImage)
         .where(JewelryImage.item_id == item_id)
         .order_by(JewelryImage.sort_order)
     ).all()
-
     for idx, image in enumerate(remaining):
         image.sort_order = idx + 1
         session.add(image)
-
     session.commit()
     return
 
