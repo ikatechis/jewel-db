@@ -9,7 +9,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import selectinload
 from sqlmodel import Session, select
 
-from jewel_db.db import get_session
+from jewel_db.core.dependencies import get_db
 from jewel_db.models.jewelry_image import JewelryImage
 from jewel_db.models.jewelry_item import JewelryItem
 from jewel_db.models.jewelry_tag import JewelryTag
@@ -37,7 +37,7 @@ MEDIA_DIR.mkdir(exist_ok=True)
 async def upload_item_images(
     item_id: int,
     files: list[UploadFile] = File([]),
-    session: Session = Depends(get_session),
+    session: Session = Depends(get_db),
 ):
     # ... your existing image logic untouched ...
     files = [
@@ -84,7 +84,7 @@ async def upload_item_images(
 )
 def list_item_images(
     item_id: int,
-    session: Session = Depends(get_session),
+    session: Session = Depends(get_db),
 ):
     # ... unchanged ...
     item = session.get(JewelryItem, item_id)
@@ -101,7 +101,7 @@ def list_item_images(
 def reorder_images(
     item_id: int,
     new_order: list[int] = Body(..., embed=True),
-    session: Session = Depends(get_session),
+    session: Session = Depends(get_db),
 ):
     # ... unchanged ...
     for idx, img_id in enumerate(new_order):
@@ -117,7 +117,7 @@ def delete_item_image(
     *,
     item_id: int,
     image_id: int,
-    session: Session = Depends(get_session),
+    session: Session = Depends(get_db),
 ):
     # ... unchanged ...
     img = session.get(JewelryImage, image_id)
@@ -153,7 +153,7 @@ def delete_item_image(
 )
 def create_item(
     *,
-    session: Session = Depends(get_session),
+    session: Session = Depends(get_db),
     item_in: JewelryItemCreate,
 ):
     # lowercase & link tags
@@ -187,7 +187,7 @@ def create_item(
     "/",
     response_model=list[JewelryItemRead],
 )
-def list_items(*, session: Session = Depends(get_session)):
+def list_items(*, session: Session = Depends(get_db)):
     items = session.exec(
         select(JewelryItem).options(selectinload(JewelryItem.tags))
     ).all()
@@ -200,7 +200,7 @@ def list_items(*, session: Session = Depends(get_session)):
 )
 def get_item(
     *,
-    session: Session = Depends(get_session),
+    session: Session = Depends(get_db),
     item_id: int,
 ):
     stmt = (
@@ -220,7 +220,7 @@ def get_item(
 )
 def update_item(
     *,
-    session: Session = Depends(get_session),
+    session: Session = Depends(get_db),
     item_id: int,
     item_in: JewelryItemUpdate,
 ):
@@ -270,7 +270,7 @@ def update_item(
 @router.delete("/batch", response_model=list[int], status_code=200)
 async def batch_delete_items(
     ids: list[int] = Body(..., embed=True),
-    session: Session = Depends(get_session),
+    session: Session = Depends(get_db),
 ):
     if not ids:
         raise HTTPException(status_code=400, detail="`ids` list is empty")
@@ -290,7 +290,7 @@ async def batch_delete_items(
 )
 def delete_item(
     *,
-    session: Session = Depends(get_session),
+    session: Session = Depends(get_db),
     item_id: int,
 ):
     item = session.get(JewelryItem, item_id)
@@ -306,7 +306,7 @@ def delete_item(
 )
 def reorder_items(
     new_order: list[int] = Body(..., embed=True),
-    session: Session = Depends(get_session),
+    session: Session = Depends(get_db),
 ):
     for idx, iid in enumerate(new_order):
         itm = session.get(JewelryItem, iid)
