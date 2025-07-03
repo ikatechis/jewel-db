@@ -1,6 +1,8 @@
 # jewel_db/main.py
 from __future__ import annotations
 
+from contextlib import asynccontextmanager
+
 from fastapi import Depends, FastAPI, HTTPException, Request
 from fastapi.responses import HTMLResponse
 from fastapi.staticfiles import StaticFiles
@@ -12,34 +14,40 @@ from jewel_db.core.database import get_engine
 from jewel_db.core.dependencies import get_db
 from jewel_db.core.models_import import import_models
 
-# Core infrastructure
+# Core infrastructure ----------------------------------------------------
 from jewel_db.core.settings import settings
 
-# Routers
+# Routers ----------------------------------------------------------------
 from .api.items import router as items_router
 from .api.tags import router as tags_router
 
-# ORM models (for page queries)
+# ORM models (page queries) ----------------------------------------------
 from .models.jewelry_image import JewelryImage
 from .models.jewelry_item import JewelryItem
 from .models.jewelry_tag import JewelryTag
 
-app = FastAPI(title="Jewelry Inventory System", debug=settings.debug)
 
-
-# ── Dev-only table bootstrap ─────────────────────────────────────────────
-@app.on_event("startup")
-def _create_dev_tables() -> None:
+# ── Lifespan handler (replaces @app.on_event) ────────────────────────────
+@asynccontextmanager
+async def lifespan(app: FastAPI):
     """
-    Auto-create tables on first run *only* when:
+    Dev-only table bootstrap runs once at startup if:
       • DEBUG is true, and
-      • Using SQLite.
-    In production you’ll run Alembic migrations instead.
+      • we are using SQLite.
+    In production we will apply Alembic migrations instead.
     """
     if settings.debug and settings.database_url.startswith("sqlite"):
         import_models()  # discover ORM classes
         SQLModel.metadata.create_all(get_engine())  # idempotent
+    yield
+    # (nothing on shutdown for now)
 
+
+app = FastAPI(
+    title="Jewelry Inventory System",
+    debug=settings.debug,
+    lifespan=lifespan,
+)
 
 # ── Static & media mounts ────────────────────────────────────────────────
 app.mount("/static", StaticFiles(directory="jewel_db/static"), name="static")

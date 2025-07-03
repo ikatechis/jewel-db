@@ -156,8 +156,8 @@ def create_item(
     session: Session = Depends(get_db),
     item_in: JewelryItemCreate,
 ):
-    # lowercase & link tags
-    tag_objs = []
+    # ── lowercase & link tags ────────────────────────────────────────────
+    tag_objs: list[JewelryTag] = []
     for name in item_in.tags or []:
         nm = name.lower().strip()
         tag = session.exec(select(JewelryTag).where(JewelryTag.name == nm)).first()
@@ -166,21 +166,21 @@ def create_item(
             session.add(tag)
         tag_objs.append(tag)
 
+    # ── create the item ─────────────────────────────────────────────────
     item = JewelryItem.model_validate(item_in, update={"tags": tag_objs})
     session.add(item)
+
     try:
         session.commit()
     except IntegrityError:
         session.rollback()
         raise HTTPException(status_code=400, detail="Name must be unique")
 
-    # return with tags eagerly loaded
-    result = session.exec(
-        select(JewelryItem)
-        .options(selectinload(JewelryItem.tags))
-        .where(JewelryItem.id == item.id)
-    ).one()
-    return result
+    # ── refresh & ensure tags are loaded ──
+    session.refresh(item)  # pulls DB-generated fields into the same instance
+    _ = item.tags  # triggers lazy load so response includes tags
+
+    return item
 
 
 @router.get(

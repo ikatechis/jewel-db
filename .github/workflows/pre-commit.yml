@@ -1,32 +1,69 @@
-name: 🛠 Lint & Format
+name: 🛠 Lint, Format & Tests
 
 on:
   push:
-    branches:
-      - main
+    branches: [ main ]
   pull_request:
 
 jobs:
-  pre-commit:
+  lint-format:
+    name: Pre-commit (Ruff, Black, etc.)
     runs-on: ubuntu-latest
 
     steps:
-      # 1. Check out the code
-      - name: Checkout
-        uses: actions/checkout@v3
+      # 1️⃣ Check out the repo
+      - uses: actions/checkout@v4
 
-      # 2. Set up Python
-      - name: Setup Python 3.11
-        uses: actions/setup-python@v4
+      # 2️⃣ Set up Python
+      - uses: actions/setup-python@v4
         with:
-          python-version: '3.11'
+          python-version: "3.11"
+          cache: "pip"
 
-      # 3. Install pre-commit
-      - name: Install pre-commit
+      # 3️⃣ Install pre-commit & run hooks
+      - run: |
+          python -m pip install --upgrade pip pre-commit
+          pre-commit run --all-files --show-diff-on-failure
+
+  tests:
+    name: Pytest & Coverage
+    runs-on: ubuntu-latest
+    needs: lint-format          # only run tests if lint passes
+
+    steps:
+      # 1️⃣ Code
+      - uses: actions/checkout@v4
+
+      # 2️⃣ Python
+      - uses: actions/setup-python@v4
+        with:
+          python-version: "3.11"
+
+      # 3️⃣ Poetry install (cached)
+      - name: Install Poetry
+        run: python -m pip install poetry
+
+      - name: Cache Poetry virtualenv
+        id: cache-poetry
+        uses: actions/cache@v3
+        with:
+          path: ~/.cache/pypoetry
+          key: >-
+            poetry-v2-${{ runner.os }}-${{ hashFiles('**/poetry.lock') }}
+
+      - name: Install dependencies
         run: |
-          python -m pip install --upgrade pip
-          pip install pre-commit
+          poetry config virtualenvs.in-project true
+          poetry install --no-interaction --with dev
 
-      # 4. Run all hooks on every file
-      - name: Run pre-commit hooks
-        run: pre-commit run --all-files --show-diff-on-failure
+      # 4️⃣ Run tests with coverage
+      - name: Run pytest
+        run: |
+          poetry run pytest --cov=jewel_db --cov-report=xml --cov-report=term-missing
+
+      # 5️⃣ Upload coverage artifact
+      - name: Upload coverage report
+        uses: actions/upload-artifact@v3
+        with:
+          name: coverage-xml
+          path: coverage.xml

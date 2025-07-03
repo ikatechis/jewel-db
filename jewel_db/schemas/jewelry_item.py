@@ -24,11 +24,10 @@ class JewelryItemBase(SQLModel):
 class JewelryItemCreate(JewelryItemBase):
     tags: list[str | None] = []
 
-    # remove None or blank strings that a UI might send
     @field_validator("tags", mode="before")
-    @classmethod
-    def _strip_empty(cls, v):
-        return [t for t in v if t]
+    def _strip_empty(cls, v: list[str | None]):
+        # keep only non-blank strings
+        return [t.strip() for t in v if t and t.strip()]
 
 
 class JewelryItemUpdate(SQLModel):
