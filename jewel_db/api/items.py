@@ -11,13 +11,13 @@ from sqlmodel import Session, select
 
 from jewel_db.db import get_session
 from jewel_db.models.jewelry_image import JewelryImage
-from jewel_db.models.jewelry_item import (
-    JewelryItem,
+from jewel_db.models.jewelry_item import JewelryItem
+from jewel_db.models.jewelry_tag import JewelryTag
+from jewel_db.schemas.jewelry_item import (
     JewelryItemCreate,
     JewelryItemRead,
     JewelryItemUpdate,
 )
-from jewel_db.models.jewelry_tag import JewelryTag
 from jewel_db.services.image_utils import normalise_image
 
 router = APIRouter(prefix="/items", tags=["items"])

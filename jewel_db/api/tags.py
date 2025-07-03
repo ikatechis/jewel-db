@@ -2,7 +2,8 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlmodel import Session, select
 
 from jewel_db.db import get_session
-from jewel_db.models.jewelry_tag import JewelryTag, JewelryTagCreate, JewelryTagUpdate
+from jewel_db.models.jewelry_tag import JewelryTag
+from jewel_db.schemas.jewelry_tag import JewelryTagCreate, JewelryTagUpdate
 
 router = APIRouter(prefix="/tags", tags=["tags"])
 
