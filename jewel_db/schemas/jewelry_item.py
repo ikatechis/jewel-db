@@ -3,6 +3,7 @@ from __future__ import annotations
 
 from datetime import datetime
 
+from pydantic import field_validator
 from sqlmodel import Field, SQLModel
 
 from .jewelry_tag import JewelryTagRead  # noqa: E402
@@ -21,7 +22,13 @@ class JewelryItemBase(SQLModel):
 
 
 class JewelryItemCreate(JewelryItemBase):
-    tags: list[str] = []
+    tags: list[str | None] = []
+
+    # remove None or blank strings that a UI might send
+    @field_validator("tags", mode="before")
+    @classmethod
+    def _strip_empty(cls, v):
+        return [t for t in v if t]
 
 
 class JewelryItemUpdate(SQLModel):
@@ -33,6 +40,13 @@ class JewelryItemUpdate(SQLModel):
     price: float | None = None
     description: str | None = None
     tags: list[str] | None = None
+
+    @field_validator("tags", mode="before")
+    @classmethod
+    def _strip_empty(cls, v):
+        if v is None:
+            return v
+        return [t for t in v if t]
 
 
 class JewelryItemRead(SQLModel):
