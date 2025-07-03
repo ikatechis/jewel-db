@@ -6,8 +6,8 @@ from datetime import datetime
 from sqlalchemy.orm import relationship
 from sqlmodel import Field, Relationship, SQLModel
 
-from .jewelry_image import JewelryImage  # noqa: F401, F811
-from .jewelry_tag import ItemTagLink, JewelryTag, JewelryTagRead
+from .jewelry_image import JewelryImage  # noqa: F401
+from .jewelry_tag import ItemTagLink, JewelryTag  # noqa: F401
 
 
 class JewelryItemBase(SQLModel):
@@ -25,7 +25,7 @@ class JewelryItemBase(SQLModel):
 class JewelryItem(JewelryItemBase, table=True):
     id: int | None = Field(default=None, primary_key=True)
 
-    images: list[JewelryImage] = Relationship(  # noqa: F821
+    images: list[JewelryImage] = Relationship(
         sa_relationship=relationship(
             "JewelryImage",
             back_populates="item",
@@ -41,33 +41,3 @@ class JewelryItem(JewelryItemBase, table=True):
         ),
         link_model=ItemTagLink,
     )
-
-
-class JewelryItemCreate(JewelryItemBase):
-    tags: list[str] = []
-
-
-class JewelryItemUpdate(SQLModel):
-    name: str | None = None
-    category: str | None = None
-    material: str | None = None
-    gemstone: str | None = None
-    weight: float | None = None
-    price: float | None = None
-    description: str | None = None
-    tags: list[str] | None = None
-
-
-class JewelryItemRead(SQLModel):
-    id: int
-    name: str
-    category: str | None
-    material: str | None
-    gemstone: str | None
-    weight: float | None
-    price: float | None
-    description: str | None
-    sort_order: int | None
-    created_at: datetime
-    # include the related tags
-    tags: list[JewelryTagRead] = []

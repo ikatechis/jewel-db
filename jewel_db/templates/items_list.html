@@ -226,72 +226,7 @@
 {% endblock %}
 
 {% block scripts %}
-<script>
-document.addEventListener("DOMContentLoaded", () => {
-  // ―― DOM refs ――
-  const deleteSelectedBtn = document.getElementById("delete-selected");
-  const selectAllBtn      = document.getElementById("select-all");
-  const getItemChecks     = () => Array.from(document.querySelectorAll(".select-item"));
-
-  // ―― show/hide batch button based on any checked ――
-  function updateBatchBtn() {
-    const anyChecked = getItemChecks().some(cb => cb.checked);
-    deleteSelectedBtn.classList.toggle("hidden", !anyChecked);
-  }
-
-  // ―― hook each checkbox ――
-  getItemChecks().forEach(cb => cb.addEventListener("change", updateBatchBtn));
-
-  // ―― hook select-all if present ――
-  if (selectAllBtn) {
-    selectAllBtn.addEventListener("change", () => {
-      const checked = selectAllBtn.checked;
-      getItemChecks().forEach(cb => cb.checked = checked);
-      updateBatchBtn();
-    });
-  }
-
-  // ―― initial call to set correct visibility ――
-  updateBatchBtn();
-
-  // ―― batch-delete logic ――
-  deleteSelectedBtn.addEventListener("click", async () => {
-    const ids = getItemChecks().filter(cb => cb.checked).map(cb => Number(cb.value));
-    if (!ids.length) return alert("No items selected");
-    if (!confirm("Delete selected items?")) return;
-    const res = await fetch("/api/items/batch", {
-      method:  "DELETE",
-      headers: { "Content-Type": "application/json" },
-      body:    JSON.stringify({ ids }),
-    });
-    if (res.ok) return window.location.reload();
-    alert("Batch delete failed");
-  });
-
-  // ―― single-delete logic ――
-  document.querySelectorAll(".delete-item").forEach(btn => {
-    btn.addEventListener("click", async () => {
-      const id = btn.dataset.id;
-      if (!confirm("Delete this item?")) return;
-      const r = await fetch(`/api/items/${id}`, { method: "DELETE" });
-      if (r.status === 204) window.location.reload();
-      else                    alert("Delete failed");
-    });
-  });
-
-  // ―― grid/list toggle ――
-  const gridView = document.getElementById("gridView");
-  const listView = document.getElementById("listView");
-  const grid     = document.getElementById("grid");
-  const list     = document.getElementById("list");
-  gridView.addEventListener("click", () => {
-    grid.classList.remove("hidden");
-    list.classList.add("hidden");
-  });
-  listView.addEventListener("click", () => {
-    list.classList.remove("hidden");
-    grid.classList.add("hidden");
-  });
-});
-</script>
+  <script type="module"
+          src="{{ url_for('static', path='js/items_list.js') }}"></script>
 {% endblock %}
+

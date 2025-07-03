@@ -34,16 +34,3 @@ class JewelryTag(JewelryTagBase, table=True):
         ),
         link_model=ItemTagLink,
     )
-
-
-class JewelryTagCreate(JewelryTagBase):
-    pass
-
-
-class JewelryTagUpdate(SQLModel):
-    name: str | None = None
-
-
-class JewelryTagRead(SQLModel):
-    id: int
-    name: str

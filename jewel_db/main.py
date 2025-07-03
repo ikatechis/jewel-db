@@ -1,47 +1,72 @@
 # jewel_db/main.py
 from __future__ import annotations
 
+from contextlib import asynccontextmanager
+
 from fastapi import Depends, FastAPI, HTTPException, Request
 from fastapi.responses import HTMLResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from sqlalchemy.orm import selectinload
-from sqlmodel import Session, select
+from sqlmodel import Session, SQLModel, select
 
+from jewel_db.core.database import get_engine
+from jewel_db.core.dependencies import get_db
+from jewel_db.core.models_import import import_models
+
+# Core infrastructure ----------------------------------------------------
+from jewel_db.core.settings import settings
+
+# Routers ----------------------------------------------------------------
 from .api.items import router as items_router
 from .api.tags import router as tags_router
-from .config import DEBUG
-from .db import get_session, init_db
+
+# ORM models (page queries) ----------------------------------------------
 from .models.jewelry_image import JewelryImage
 from .models.jewelry_item import JewelryItem
 from .models.jewelry_tag import JewelryTag
 
-app = FastAPI(title="Jewelry Inventory System", debug=DEBUG)
+
+# ── Lifespan handler (replaces @app.on_event) ────────────────────────────
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """
+    Dev-only table bootstrap runs once at startup if:
+      • DEBUG is true, and
+      • we are using SQLite.
+    In production we will apply Alembic migrations instead.
+    """
+    if settings.debug and settings.database_url.startswith("sqlite"):
+        import_models()  # discover ORM classes
+        SQLModel.metadata.create_all(get_engine())  # idempotent
+    yield
+    # (nothing on shutdown for now)
 
 
-@app.on_event("startup")
-def on_startup():
-    init_db()
+app = FastAPI(
+    title="Jewelry Inventory System",
+    debug=settings.debug,
+    lifespan=lifespan,
+)
 
-
-# Mount static directories
+# ── Static & media mounts ────────────────────────────────────────────────
 app.mount("/static", StaticFiles(directory="jewel_db/static"), name="static")
 app.mount("/media", StaticFiles(directory="media"), name="media")
 
-# Include API routers
+# ── API routers ──────────────────────────────────────────────────────────
 app.include_router(items_router, prefix="/api")
 app.include_router(tags_router, prefix="/api")
 
 templates = Jinja2Templates(directory="jewel_db/templates")
 
 
-# Home
+# ── Home ─────────────────────────────────────────────────────────────────
 @app.get("/", response_class=HTMLResponse)
 def home(request: Request):
     return templates.TemplateResponse("index.html", {"request": request})
 
 
-# ─── Items List Page ──────────────────────────────────────────────────────────
+# ── Items List Page ──────────────────────────────────────────────────────
 @app.get("/items", response_class=HTMLResponse)
 def list_items_page(
     request: Request,
@@ -49,9 +74,9 @@ def list_items_page(
     search: str | None = None,
     material: str | None = None,
     gemstone: str | None = None,
-    session: Session = Depends(get_session),
+    session: Session = Depends(get_db),
 ):
-    # 1. Build base query (eager‐load tags)
+    # 1. Base query (eager-load tags)
     stmt = select(JewelryItem).options(selectinload(JewelryItem.tags))
     if search:
         stmt = stmt.where(JewelryItem.name.ilike(f"%{search}%"))
@@ -66,12 +91,11 @@ def list_items_page(
 
     all_items = session.exec(stmt).all()
 
-    # 2. Paginate
+    # 2. Pagination
     per_page = 9
     total_count = len(all_items)
     total_pages = (total_count - 1) // per_page + 1 if total_count else 1
-    start = (page - 1) * per_page
-    end = start + per_page
+    start, end = (page - 1) * per_page, (page - 1) * per_page + per_page
     items = all_items[start:end]
 
     # 3. Thumbnails
@@ -85,7 +109,7 @@ def list_items_page(
     total_weight = sum(i.weight or 0 for i in all_items)
     no_image_count = sum(1 for i in all_items if not i.images)
 
-    # 5. Distinct filter values
+    # 5. Filter values
     materials = sorted({i.material for i in all_items if i.material})
     gemstones = sorted({i.gemstone for i in all_items if i.gemstone})
 
@@ -111,7 +135,7 @@ def list_items_page(
     )
 
 
-# ─── Add Item Page ────────────────────────────────────────────────────────────
+# ── Add Item Page ────────────────────────────────────────────────────────
 @app.get("/items/create", response_class=HTMLResponse)
 def items_create(request: Request):
     return templates.TemplateResponse(
@@ -119,14 +143,13 @@ def items_create(request: Request):
     )
 
 
-# ─── Item Detail Page ─────────────────────────────────────────────────────────
+# ── Item Detail Page ─────────────────────────────────────────────────────
 @app.get("/items/{item_id}", response_class=HTMLResponse)
 def item_detail(
     request: Request,
     item_id: int,
-    session: Session = Depends(get_session),
+    session: Session = Depends(get_db),
 ):
-    # Eager‐load tags
     stmt = (
         select(JewelryItem)
         .options(selectinload(JewelryItem.tags))
@@ -147,14 +170,13 @@ def item_detail(
     )
 
 
-# ─── Edit Item Page ───────────────────────────────────────────────────────────
+# ── Edit Item Page ───────────────────────────────────────────────────────
 @app.get("/items/{item_id}/edit", response_class=HTMLResponse)
 def item_edit(
     request: Request,
     item_id: int,
-    session: Session = Depends(get_session),
+    session: Session = Depends(get_db),
 ):
-    # Eager‐load tags for the edit form
     stmt = (
         select(JewelryItem)
         .options(selectinload(JewelryItem.tags))
@@ -169,16 +191,16 @@ def item_edit(
     )
 
 
-# ─── Tags Admin Page ─────────────────────────────────────────────────────────
+# ── Tags Admin Page ──────────────────────────────────────────────────────
 @app.get("/tags", response_class=HTMLResponse)
-def tags_list_page(request: Request, session: Session = Depends(get_session)):
+def tags_list_page(request: Request, session: Session = Depends(get_db)):
     tags = session.exec(select(JewelryTag).order_by(JewelryTag.name)).all()
     return templates.TemplateResponse(
         "tags_list.html", {"request": request, "tags": tags}
     )
 
 
-# ─── Health Check ─────────────────────────────────────────────────────────────
+# ── Health Check ─────────────────────────────────────────────────────────
 @app.get("/api/health")
 def health_check():
     return {"status": "ok"}

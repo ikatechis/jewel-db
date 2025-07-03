@@ -7,7 +7,8 @@
     <title>{% block title %}Jewelry Inventory{% endblock %}</title>
     <!-- Tailwind CDN -->
     <script src="https://cdn.tailwindcss.com"></script>
-
+    <link rel="icon" type="image/x-icon"
+      href="{{ url_for('static', path='favicon.ico') }}">
     <!-- Global helper scripts (loaded once for all pages) -->
     <script src="{{ url_for('static', path='js/webcam_capture.js') }}"></script>
     {# Modules are loaded per-page; no duplicate tag_select import here #}
