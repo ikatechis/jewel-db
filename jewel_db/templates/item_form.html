@@ -39,22 +39,19 @@
     >
   </div>
 
-  <!-- Gemstone -->
-  <div>
-    <label class="block mb-1">Gemstone</label>
-    <input
-      list="gemstone-list"
-      name="gemstone"
-      value="{{ item.gemstone if item else '' }}"
-      placeholder="Select or type…"
-      class="w-full border rounded p-2"
-    >
-    <datalist id="gemstone-list">
-      <option value="diamond"><option value="ruby"><option value="sapphire">
-      <option value="emerald"><option value="pearl"><option value="opal">
-      <option value="other">
-    </datalist>
-  </div>
+<!-- Gemstone -->
+<div>
+  <label class="block mb-1">Gemstone</label>
+  {% set gem = item.gemstone if item else '' %}
+  <select name="gemstone" class="w-full border rounded p-2">
+    {% for g in ['diamond','ruby','sapphire','emerald','pearl','opal','other','None'] %}
+      <option  value="{{ g if g != 'None' else '' }}"
+               {% if (g == 'None' and not gem) or g == gem %}selected{% endif %}>
+        {{ g.title() if g != 'None' else 'None' }}
+      </option>
+    {% endfor %}
+  </select>
+</div>
 
   <!-- Weight & Price -->
   <div class="grid grid-cols-2 gap-4">

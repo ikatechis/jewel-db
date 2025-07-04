@@ -62,7 +62,19 @@
     <div><label class="block font-medium">Name</label><input type="text" name="name" value="{{ item.name }}" disabled class="w-full border rounded p-2"/></div>
     <div><label class="block font-medium">Category</label><select name="category" class="w-full border rounded p-2" disabled>{% for c in ['ring','bracelet','earring','necklace','brooch','other'] %}<option value="{{ c }}" {% if c==item.category %}selected{% endif %}>{{ c.title() }}</option>{% endfor %}</select></div>
     <div><label class="block font-medium">Material</label><input type="text" name="material" value="{{ item.material or '' }}" disabled class="w-full border rounded p-2"/></div>
-    <div><label class="block font-medium">Gemstone</label><input type="text" name="gemstone" value="{{ item.gemstone or '' }}" disabled class="w-full border rounded p-2"/></div>
+    <div>
+      <label class="block font-medium">Gemstone</label>
+      {% set gem = item.gemstone or '' %}
+      <select name="gemstone" class="w-full border rounded p-2" disabled>
+        {% for g in ['diamond','ruby','sapphire','emerald','pearl','opal','other','None'] %}
+          <option  value="{{ g if g != 'None' else '' }}"
+                  {% if (g == 'None' and not gem) or g == gem %}selected{% endif %}>
+            {{ g.title() if g != 'None' else 'None' }}
+          </option>
+        {% endfor %}
+      </select>
+    </div>
+
     <div class="grid grid-cols-2 gap-4"><div><label class="block font-medium">Weight (g)</label><input type="number" step="0.01" name="weight" value="{{ '%.2f'|format(item.weight) }}" disabled class="w-full border rounded p-2"/></div><div><label class="block font-medium">Price</label><input type="number" step="0.01" name="price" value="{{ '%.2f'|format(item.price) }}" disabled class="w-full border rounded p-2"/></div></div>
     <div>
       <label class="block font-medium">Tags</label>
